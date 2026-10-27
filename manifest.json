@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "tracks": [
+    {
+      "id": "p3_color_your_night",
+      "game_theme": "PERSONA_3_RELOAD",
+      "title": "Color Your Night",
+      "artist": "Azumi Takahashi, Lotus Juice",
+      "time_of_day": "NIGHT",
+      "weather": "CLEAR",
+      "stream_url": "https://cdn.example.com/audio/p3_color_your_night.m4a"
+    },
+    {
+      "id": "p4_heartbeat_rain",
+      "game_theme": "PERSONA_4_REVIVAL",
+      "title": "Heartbeat, Heartbreak",
+      "artist": "Shihoko Hirata",
+      "time_of_day": "ALL",
+      "weather": "RAIN",
+      "stream_url": "[https://cdn.example.com/audio/p4_heartbeat_rain.m4a](https://cdn.example.com/audio/p4_heartbeat_rain.m4a)"
+    },
+    {
+      "id": "p5_tokyo_daylight",
+      "game_theme": "PERSONA_5_ROYAL",
+      "title": "Tokyo Daylight",
+      "artist": "Lyn Inaizumi",
+      "time_of_day": "DAY",
+      "weather": "CLEAR",
+      "stream_url": "[https://cdn.example.com/audio/p5_tokyo_daylight.m4a](https://cdn.example.com/audio/p5_tokyo_daylight.m4a)"
+    }
+  ]
+}
