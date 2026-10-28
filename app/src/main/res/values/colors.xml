@@ -1,0 +1,5 @@
+<resources>
+    <!-- Matches the Persona 3 Reload background so the window never flashes white before Compose draws. -->
+    <color name="persona_background">#FF0A0E17</color>
+    <color name="ic_launcher_background">#FF0A0E17</color>
+</resources>

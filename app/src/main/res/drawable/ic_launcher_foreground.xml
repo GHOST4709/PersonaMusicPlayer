@@ -1,0 +1,11 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- A diamond ring: outer diamond with an inner diamond cut out. Placeholder artwork. -->
+    <path
+        android:fillColor="#FFD000"
+        android:fillType="evenOdd"
+        android:pathData="M54,23 L85,54 L54,85 L23,54 Z M54,38 L70,54 L54,70 L38,54 Z" />
+</vector>
