@@ -1,10 +1,10 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     // Note: no kotlin-android plugin (AGP 9 built-in Kotlin).
-    // kotlin-serialization plugin is added in Phase 2 together with the manifest DTOs.
 }
 
 android {
@@ -18,6 +18,10 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Track manifest location (spec 7.1: configurable per build type). Replace the placeholder
+        // with your own host. Must be https; cleartext traffic is disabled.
+        buildConfigField("String", "MANIFEST_URL", "\"https://cdn.example.com/manifest.json\"")
     }
 
     buildTypes {
@@ -78,6 +82,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.kotlinx.serialization)
 
     // Tests
     testImplementation(libs.junit)

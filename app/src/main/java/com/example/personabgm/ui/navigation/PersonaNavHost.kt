@@ -6,18 +6,23 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.personabgm.domain.model.AppSettings
 import com.example.personabgm.ui.AppViewModel
+import com.example.personabgm.ui.ManifestViewModel
 import com.example.personabgm.ui.home.HomeScreen
+import com.example.personabgm.ui.library.LibraryScreen
 import com.example.personabgm.ui.settings.SettingsScreen
 import com.example.personabgm.ui.theme.LocalReduceMotion
 
 object Routes {
     const val HOME = "home"
+    const val LIBRARY = "library"
     const val SETTINGS = "settings"
 }
 
@@ -25,6 +30,7 @@ object Routes {
 fun PersonaNavHost(
     settings: AppSettings,
     viewModel: AppViewModel,
+    manifestViewModel: ManifestViewModel,
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
@@ -43,7 +49,17 @@ fun PersonaNavHost(
             HomeScreen(
                 selectedTheme = settings.theme,
                 onThemeSelected = viewModel::setTheme,
+                onOpenLibrary = { navController.navigate(Routes.LIBRARY) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+            )
+        }
+        composable(Routes.LIBRARY) {
+            val state by manifestViewModel.uiState.collectAsStateWithLifecycle()
+            LibraryScreen(
+                state = state,
+                activeTheme = settings.theme,
+                onRefresh = manifestViewModel::refresh,
+                onBack = { navController.popBackStack() },
             )
         }
         composable(Routes.SETTINGS) {

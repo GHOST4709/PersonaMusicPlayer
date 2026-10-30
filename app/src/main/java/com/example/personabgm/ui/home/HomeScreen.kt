@@ -37,6 +37,7 @@ import com.example.personabgm.ui.theme.PersonaStyles
 fun HomeScreen(
     selectedTheme: GameTheme,
     onThemeSelected: (GameTheme) -> Unit,
+    onOpenLibrary: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -73,11 +74,18 @@ fun HomeScreen(
         }
 
         item {
-            PersonaButton(
-                text = "Settings",
-                onClick = onOpenSettings,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                PersonaButton(
+                    text = "Library",
+                    onClick = onOpenLibrary,
+                    modifier = Modifier.weight(1f),
+                )
+                PersonaButton(
+                    text = "Settings",
+                    onClick = onOpenSettings,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }

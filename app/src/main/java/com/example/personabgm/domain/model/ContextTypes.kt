@@ -7,10 +7,23 @@ enum class TimeBucket { DAY, NIGHT }
 enum class WeatherType { CLEAR, RAIN, SNOW }
 
 /** Manifest `time_of_day` tag. ALL matches any runtime [TimeBucket]. */
-enum class TrackTime { ALL, DAY, NIGHT }
+enum class TrackTime {
+    ALL, DAY, NIGHT;
+
+    companion object {
+        /** Unknown or missing tags become ALL so a future value never breaks an older app (spec 7.1). */
+        fun fromNameOrAll(name: String?): TrackTime = entries.firstOrNull { it.name == name } ?: ALL
+    }
+}
 
 /** Manifest `weather` tag. ALL matches any runtime [WeatherType]. */
-enum class TrackWeather { ALL, CLEAR, RAIN, SNOW }
+enum class TrackWeather {
+    ALL, CLEAR, RAIN, SNOW;
+
+    companion object {
+        fun fromNameOrAll(name: String?): TrackWeather = entries.firstOrNull { it.name == name } ?: ALL
+    }
+}
 
 /** Crossfade gain curve (spec 4.2). Equal-power avoids the mid-fade loudness dip of a linear fade. */
 enum class CrossfadeCurve { EQUAL_POWER, LINEAR }

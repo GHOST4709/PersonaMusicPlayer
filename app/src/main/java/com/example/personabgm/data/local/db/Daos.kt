@@ -45,12 +45,21 @@ interface ZoneStateDao {
     suspend fun clearAll()
 }
 
+/** Consistent read of the whole cached manifest (meta + tracks + theme defaults). */
+data class ManifestSnapshot(
+    val meta: ManifestMetaEntity,
+    val tracks: List<ManifestTrackEntity>,
+    val themeDefaults: List<ManifestThemeDefaultEntity>,
+)
+
 @Dao
 abstract class ManifestDao {
-    @Query("SELECT * FROM manifest_tracks")
-    abstract fun observeTracks(): Flow<List<ManifestTrackEntity>>
+    /** Emits whenever the cached manifest changes. Meta is always written last in [replaceAll]. */
+    @Query("SELECT * FROM manifest_meta WHERE id = 1")
+    abstract fun observeMeta(): Flow<ManifestMetaEntity?>
 
-    @Query("SELECT * FROM manifest_tracks")
+    // ORDER BY rowid preserves the manifest's own track order (used for Next/Previous).
+    @Query("SELECT * FROM manifest_tracks ORDER BY rowid")
     abstract suspend fun getTracks(): List<ManifestTrackEntity>
 
     @Query("SELECT * FROM manifest_theme_defaults")
@@ -86,5 +95,11 @@ abstract class ManifestDao {
         upsertTracks(tracks)
         upsertThemeDefaults(themeDefaults)
         upsertMeta(meta)
+    }
+
+    @Transaction
+    open suspend fun loadSnapshot(): ManifestSnapshot? {
+        val meta = getMeta() ?: return null
+        return ManifestSnapshot(meta, getTracks(), getThemeDefaults())
     }
 }
