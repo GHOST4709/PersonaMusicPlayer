@@ -34,4 +34,14 @@ data class Manifest(
         val group = track.variantGroup ?: return listOf(track)
         return tracks.filter { it.variantGroup == group }
     }
+
+    /**
+     * Tracks worth downloading ahead of time: every theme's roaming default plus its variants, so the
+     * first trigger plays with no wait (spec 4.4). Zone-assigned tracks are added in Phase 5.
+     */
+    fun precacheTracks(): List<Track> =
+        themeDefaults.values
+            .mapNotNull { trackById(it) }
+            .flatMap { variantsOf(it) }
+            .distinctBy { it.id }
 }

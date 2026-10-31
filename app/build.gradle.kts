@@ -78,6 +78,11 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
+    // Audio (Phase 3)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.session)
+    implementation(libs.androidx.work.runtime.ktx)
+
     // Kotlin libs / network
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)

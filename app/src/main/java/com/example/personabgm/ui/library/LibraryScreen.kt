@@ -1,7 +1,7 @@
 package com.example.personabgm.ui.library
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,9 +15,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.personabgm.audio.PlaybackUiState
 import com.example.personabgm.domain.model.GameTheme
 import com.example.personabgm.domain.model.Manifest
 import com.example.personabgm.domain.model.Track
@@ -29,17 +31,28 @@ import com.example.personabgm.ui.components.ConnectingScreen
 import com.example.personabgm.ui.components.PersonaButton
 import com.example.personabgm.ui.components.PersonaCard
 import com.example.personabgm.ui.components.PersonaHeading
+import com.example.personabgm.ui.haptics.LocalHaptics
 import com.example.personabgm.ui.theme.PersonaStyles
 
-/** Track list from the manifest, grouped by theme with the active theme first (spec 3.3). */
+/**
+ * Track list from the manifest, grouped by theme with the active theme first (spec 3.3).
+ * Tap a track to play it (this enters Manual Override); "Saved" means it is fully on disk.
+ */
 @Composable
 fun LibraryScreen(
     state: UiState<LibraryContent>,
     activeTheme: GameTheme,
+    playback: PlaybackUiState,
+    cachedIds: Set<String>,
+    onPlayTrack: (Track) -> Unit,
+    onOpened: () -> Unit,
     onRefresh: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Cache status can change while playing, so re-check whenever the screen opens.
+    LaunchedEffect(Unit) { onOpened() }
+
     when (state) {
         UiState.Loading -> ConnectingScreen(modifier)
         is UiState.Error -> LibraryError(
@@ -51,6 +64,9 @@ fun LibraryScreen(
         is UiState.Content -> LibraryList(
             content = state.data,
             activeTheme = activeTheme,
+            playback = playback,
+            cachedIds = cachedIds,
+            onPlayTrack = onPlayTrack,
             onRefresh = onRefresh,
             onBack = onBack,
             modifier = modifier,
@@ -96,11 +112,15 @@ private fun LibraryError(
 private fun LibraryList(
     content: LibraryContent,
     activeTheme: GameTheme,
+    playback: PlaybackUiState,
+    cachedIds: Set<String>,
+    onPlayTrack: (Track) -> Unit,
     onRefresh: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
+    val haptics = LocalHaptics.current
     val manifest = content.manifest
     val styles = PersonaStyles.all.sortedByDescending { it.theme == activeTheme }
 
@@ -125,7 +145,7 @@ private fun LibraryList(
             val tracks = manifest.tracksFor(style.theme)
             if (tracks.isEmpty()) continue
 
-            item(key = "header-${style.theme.name}") {
+            item(key = "theme-header:${style.theme.name}") {
                 Text(
                     text = style.displayName,
                     style = MaterialTheme.typography.titleLarge,
@@ -134,7 +154,17 @@ private fun LibraryList(
                 )
             }
             items(items = tracks, key = { it.id }) { track ->
-                TrackCard(track = track, isRoamingDefault = isDefault(manifest, track))
+                TrackCard(
+                    track = track,
+                    isRoamingDefault = isDefault(manifest, track),
+                    isCurrent = playback.track?.id == track.id,
+                    isPlaying = playback.isPlaying,
+                    isSaved = track.id in cachedIds,
+                    onClick = {
+                        haptics.tick()
+                        onPlayTrack(track)
+                    },
+                )
             }
         }
 
@@ -158,9 +188,20 @@ private fun LibraryList(
 private fun isDefault(manifest: Manifest, track: Track) = manifest.themeDefaults[track.gameTheme] == track.id
 
 @Composable
-private fun TrackCard(track: Track, isRoamingDefault: Boolean) {
+private fun TrackCard(
+    track: Track,
+    isRoamingDefault: Boolean,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
+    isSaved: Boolean,
+    onClick: () -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
-    PersonaCard(modifier = Modifier.fillMaxWidth()) {
+    PersonaCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        onClickLabel = "Play ${track.title}",
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 text = track.title,
@@ -168,7 +209,11 @@ private fun TrackCard(track: Track, isRoamingDefault: Boolean) {
                 color = colors.onSurface,
                 modifier = Modifier.weight(1f),
             )
-            if (isRoamingDefault) DefaultBadge()
+            // One badge at a time: what is happening now beats the static "roaming default" label.
+            when {
+                isCurrent -> Badge(if (isPlaying) "Playing" else "Paused")
+                isRoamingDefault -> Badge("Roaming default")
+            }
         }
         Text(
             text = track.artist,
@@ -180,6 +225,7 @@ private fun TrackCard(track: Track, isRoamingDefault: Boolean) {
             modifier = Modifier.padding(top = 8.dp),
         ) {
             conditionLabels(track).forEach { TagChip(it) }
+            if (isSaved) TagChip("Saved")
         }
     }
 }
@@ -212,13 +258,13 @@ private fun TagChip(text: String) {
 }
 
 @Composable
-private fun DefaultBadge() {
+private fun Badge(text: String) {
     val colors = MaterialTheme.colorScheme
     Box(
         Modifier
             .background(colors.secondary, MaterialTheme.shapes.extraSmall)
             .padding(horizontal = 12.dp, vertical = 4.dp),
     ) {
-        Text(text = "Roaming default", style = MaterialTheme.typography.labelMedium, color = colors.onSecondary)
+        Text(text = text, style = MaterialTheme.typography.labelMedium, color = colors.onSecondary)
     }
 }

@@ -8,13 +8,16 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.personabgm.domain.model.AppSettings
+import com.example.personabgm.domain.model.CrossfadeCurve
 import com.example.personabgm.ui.AppViewModel
 import com.example.personabgm.ui.ManifestViewModel
+import com.example.personabgm.ui.PlaybackViewModel
 import com.example.personabgm.ui.home.HomeScreen
 import com.example.personabgm.ui.library.LibraryScreen
 import com.example.personabgm.ui.settings.SettingsScreen
@@ -32,9 +35,12 @@ fun PersonaNavHost(
     viewModel: AppViewModel,
     manifestViewModel: ManifestViewModel,
     modifier: Modifier = Modifier,
+    // Activity-scoped here, so every screen shares one adapter over the singleton PlaybackRemote.
+    playbackViewModel: PlaybackViewModel = hiltViewModel(),
 ) {
     val navController = rememberNavController()
     val reduceMotion = LocalReduceMotion.current
+    val playback by playbackViewModel.state.collectAsStateWithLifecycle()
 
     NavHost(
         navController = navController,
@@ -48,23 +54,43 @@ fun PersonaNavHost(
         composable(Routes.HOME) {
             HomeScreen(
                 selectedTheme = settings.theme,
+                playback = playback,
                 onThemeSelected = viewModel::setTheme,
+                onPlayPause = playbackViewModel::togglePlayPause,
+                onPrevious = playbackViewModel::previous,
+                onNext = playbackViewModel::next,
+                onResumeAuto = playbackViewModel::resumeAuto,
                 onOpenLibrary = { navController.navigate(Routes.LIBRARY) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
         composable(Routes.LIBRARY) {
             val state by manifestViewModel.uiState.collectAsStateWithLifecycle()
+            val cachedIds by manifestViewModel.cachedTrackIds.collectAsStateWithLifecycle()
             LibraryScreen(
                 state = state,
                 activeTheme = settings.theme,
+                playback = playback,
+                cachedIds = cachedIds,
+                onPlayTrack = playbackViewModel::playTrack,
+                onOpened = manifestViewModel::refreshCacheStatus,
                 onRefresh = manifestViewModel::refresh,
                 onBack = { navController.popBackStack() },
             )
         }
         composable(Routes.SETTINGS) {
+            val cache by viewModel.audioCache.collectAsStateWithLifecycle()
             SettingsScreen(
                 settings = settings,
+                cache = cache,
+                onOpened = viewModel::refreshAudioCache,
+                onVolumeChange = viewModel::setGlobalVolume,
+                onCrossfadeDurationChange = viewModel::setCrossfadeDurationMs,
+                onLinearCurveChange = { linear ->
+                    viewModel.setCrossfadeCurve(if (linear) CrossfadeCurve.LINEAR else CrossfadeCurve.EQUAL_POWER)
+                },
+                onWifiOnlyChange = viewModel::setPrecacheWifiOnly,
+                onClearCache = viewModel::clearAudioCache,
                 onHapticsChange = viewModel::setHapticsEnabled,
                 onReduceMotionChange = viewModel::setReduceMotion,
                 onBack = { navController.popBackStack() },

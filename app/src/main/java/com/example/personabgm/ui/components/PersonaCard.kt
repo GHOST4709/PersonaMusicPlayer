@@ -26,6 +26,7 @@ fun PersonaCard(
     modifier: Modifier = Modifier,
     selected: Boolean? = null,
     onClick: (() -> Unit)? = null,
+    onClickLabel: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val style = LocalPersonaStyle.current
@@ -45,7 +46,7 @@ fun PersonaCard(
     val interactive = when {
         selected != null && onClick != null ->
             base.selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
-        onClick != null -> base.clickable(onClick = onClick)
+        onClick != null -> base.clickable(onClickLabel = onClickLabel, onClick = onClick)
         else -> base
     }
 

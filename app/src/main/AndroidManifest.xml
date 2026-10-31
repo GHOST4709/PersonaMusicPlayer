@@ -23,9 +23,9 @@
         android:maxSdkVersion="30" />
 
     <!--
-      Permissions are declared up front (spec section 6). The components that use them
-      (PlaybackService, GeofenceReceiver, BootReceiver, Maps key) are declared in the phase
-      that implements them, so nothing here references a class that does not exist yet.
+      Permissions are declared up front (spec section 6). Components are declared in the phase that
+      implements them: PlaybackService (Phase 3) is below; GeofenceReceiver, BootReceiver, and the
+      Maps key arrive in Phases 4 and 5.
     -->
 
     <application
@@ -47,5 +47,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Media3 playback service: hosts the two players, the media session, and audio focus. -->
+        <service
+            android:name=".audio.PlaybackService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>
