@@ -15,17 +15,22 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.personabgm.domain.model.AppSettings
 import com.example.personabgm.domain.model.CrossfadeCurve
+import com.example.personabgm.domain.model.UiState
 import com.example.personabgm.ui.AppViewModel
+import com.example.personabgm.ui.LibraryContent
 import com.example.personabgm.ui.ManifestViewModel
 import com.example.personabgm.ui.PlaybackViewModel
 import com.example.personabgm.ui.home.HomeScreen
 import com.example.personabgm.ui.library.LibraryScreen
 import com.example.personabgm.ui.settings.SettingsScreen
+import com.example.personabgm.ui.zones.ZonesScreen
+import com.example.personabgm.ui.zones.ZonesViewModel
 import com.example.personabgm.ui.theme.LocalReduceMotion
 
 object Routes {
     const val HOME = "home"
     const val LIBRARY = "library"
+    const val ZONES = "zones"
     const val SETTINGS = "settings"
 }
 
@@ -61,6 +66,7 @@ fun PersonaNavHost(
                 onNext = playbackViewModel::next,
                 onResumeAuto = playbackViewModel::resumeAuto,
                 onOpenLibrary = { navController.navigate(Routes.LIBRARY) },
+                onOpenZones = { navController.navigate(Routes.ZONES) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
@@ -75,6 +81,32 @@ fun PersonaNavHost(
                 onPlayTrack = playbackViewModel::playTrack,
                 onOpened = manifestViewModel::refreshCacheStatus,
                 onRefresh = manifestViewModel::refresh,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(Routes.ZONES) {
+            val zonesViewModel: ZonesViewModel = hiltViewModel()
+            val rows by zonesViewModel.rows.collectAsStateWithLifecycle()
+            val access by zonesViewModel.access.collectAsStateWithLifecycle()
+            val status by zonesViewModel.geofenceStatus.collectAsStateWithLifecycle()
+            val message by zonesViewModel.message.collectAsStateWithLifecycle()
+            val busy by zonesViewModel.busy.collectAsStateWithLifecycle()
+            val manifestState by manifestViewModel.uiState.collectAsStateWithLifecycle()
+            ZonesScreen(
+                rows = rows,
+                manifest = (manifestState as? UiState.Content<LibraryContent>)?.data?.manifest,
+                access = access,
+                status = status,
+                message = message,
+                busy = busy,
+                onAccessChanged = zonesViewModel::refreshAccess,
+                onAddZone = zonesViewModel::addZoneHere,
+                onRadiusChange = zonesViewModel::setRadius,
+                onAssignTrack = zonesViewModel::assignTrack,
+                onEnabledChange = zonesViewModel::setEnabled,
+                onDelete = zonesViewModel::delete,
+                onRetryGeofences = zonesViewModel::refreshGeofences,
+                onDismissMessage = zonesViewModel::dismissMessage,
                 onBack = { navController.popBackStack() },
             )
         }

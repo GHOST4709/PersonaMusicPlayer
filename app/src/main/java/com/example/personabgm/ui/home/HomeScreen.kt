@@ -37,9 +37,12 @@ import androidx.core.content.ContextCompat
 import com.example.personabgm.audio.PlaybackMode
 import com.example.personabgm.audio.PlaybackUiState
 import com.example.personabgm.domain.model.GameTheme
+import com.example.personabgm.domain.model.TimeBucket
+import com.example.personabgm.domain.model.WeatherType
 import com.example.personabgm.ui.components.PersonaButton
 import com.example.personabgm.ui.components.PersonaCard
 import com.example.personabgm.ui.components.PersonaHeading
+import com.example.personabgm.ui.components.TagChip
 import com.example.personabgm.ui.haptics.LocalHaptics
 import com.example.personabgm.ui.theme.LocalPersonaStyle
 import com.example.personabgm.ui.theme.PersonaPalette
@@ -56,6 +59,7 @@ fun HomeScreen(
     onNext: () -> Unit,
     onResumeAuto: () -> Unit,
     onOpenLibrary: () -> Unit,
+    onOpenZones: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -118,20 +122,26 @@ fun HomeScreen(
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                PersonaButton(
-                    text = "Library",
-                    onClick = onOpenLibrary,
-                    modifier = Modifier.weight(1f),
-                )
-                PersonaButton(
-                    text = "Settings",
-                    onClick = onOpenSettings,
-                    modifier = Modifier.weight(1f),
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    PersonaButton(text = "Library", onClick = onOpenLibrary, modifier = Modifier.weight(1f))
+                    PersonaButton(text = "Zones", onClick = onOpenZones, modifier = Modifier.weight(1f))
+                }
+                PersonaButton(text = "Settings", onClick = onOpenSettings, modifier = Modifier.fillMaxWidth())
             }
         }
     }
+}
+
+private fun weatherLabel(weather: WeatherType) = when (weather) {
+    WeatherType.CLEAR -> "Clear"
+    WeatherType.RAIN -> "Rain"
+    WeatherType.SNOW -> "Snow"
+}
+
+private fun timeLabel(time: TimeBucket) = when (time) {
+    TimeBucket.DAY -> "Day"
+    TimeBucket.NIGHT -> "Night"
 }
 
 /** One sentence about what is happening, or null when there is nothing worth saying. */
@@ -172,8 +182,16 @@ private fun NowPlayingCard(
             text = statusLine(state),
             style = MaterialTheme.typography.bodyMedium,
             color = if (state.error != null) colors.error else colors.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
         )
+        state.context?.let { info ->
+            // Why AUTO is playing what it is: where you are, the weather, and the time of day.
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
+                TagChip(text = info.zoneName ?: "Roaming", modifier = Modifier.weight(1f, fill = false))
+                TagChip(text = weatherLabel(info.weather))
+                TagChip(text = timeLabel(info.time))
+            }
+        }
 
         PersonaButton(
             text = if (state.isPlaying) "Pause" else "Play",

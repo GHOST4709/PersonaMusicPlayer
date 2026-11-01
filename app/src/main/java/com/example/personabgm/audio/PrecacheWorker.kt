@@ -11,6 +11,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.personabgm.data.local.datastore.SettingsRepository
+import com.example.personabgm.data.local.db.ZoneDao
 import com.example.personabgm.data.repository.ManifestRepository
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -24,8 +25,8 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.first
 
 /**
- * Downloads each theme's default tracks (and their variants) ahead of time so the first trigger plays
- * with no wait (spec 4.4). Downloads resume from whatever is already cached.
+ * Downloads each theme's default tracks and every zone-assigned track (with their variants) ahead of time,
+ * so the first trigger plays with no wait (spec 4.4). Downloads resume from whatever is already cached.
  *
  * Uses a Hilt entry point instead of hilt-work to avoid a custom WorkManager configuration.
  */
@@ -40,6 +41,7 @@ class PrecacheWorker(
         fun manifestRepository(): ManifestRepository
         fun mediaCache(): MediaCache
         fun cacheStatus(): CacheStatus
+        fun zoneDao(): ZoneDao
     }
 
     override suspend fun doWork(): Result {
@@ -48,7 +50,8 @@ class PrecacheWorker(
         val cache = deps.mediaCache()
 
         var anyFailed = false
-        for (track in manifest.precacheTracks()) {
+        val assigned = deps.zoneDao().getAssignedTrackIds()
+        for (track in manifest.precacheTracks(assigned)) {
             if (cache.isFullyCached(track)) continue
             try {
                 cache.download(track)

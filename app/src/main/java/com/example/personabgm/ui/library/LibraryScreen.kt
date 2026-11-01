@@ -31,6 +31,8 @@ import com.example.personabgm.ui.components.ConnectingScreen
 import com.example.personabgm.ui.components.PersonaButton
 import com.example.personabgm.ui.components.PersonaCard
 import com.example.personabgm.ui.components.PersonaHeading
+import com.example.personabgm.ui.components.StatusBadge
+import com.example.personabgm.ui.components.TagChip
 import com.example.personabgm.ui.haptics.LocalHaptics
 import com.example.personabgm.ui.theme.PersonaStyles
 
@@ -211,8 +213,8 @@ private fun TrackCard(
             )
             // One badge at a time: what is happening now beats the static "roaming default" label.
             when {
-                isCurrent -> Badge(if (isPlaying) "Playing" else "Paused")
-                isRoamingDefault -> Badge("Roaming default")
+                isCurrent -> StatusBadge(if (isPlaying) "Playing" else "Paused")
+                isRoamingDefault -> StatusBadge("Roaming default")
             }
         }
         Text(
@@ -246,25 +248,4 @@ private fun conditionLabels(track: Track): List<String> {
         }
     }
     return labels.ifEmpty { listOf("Any time") }
-}
-
-@Composable
-private fun TagChip(text: String) {
-    val colors = MaterialTheme.colorScheme
-    val shape = MaterialTheme.shapes.extraSmall
-    Box(Modifier.border(1.dp, colors.outline, shape).padding(horizontal = 10.dp, vertical = 3.dp)) {
-        Text(text = text, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun Badge(text: String) {
-    val colors = MaterialTheme.colorScheme
-    Box(
-        Modifier
-            .background(colors.secondary, MaterialTheme.shapes.extraSmall)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-    ) {
-        Text(text = text, style = MaterialTheme.typography.labelMedium, color = colors.onSecondary)
-    }
 }

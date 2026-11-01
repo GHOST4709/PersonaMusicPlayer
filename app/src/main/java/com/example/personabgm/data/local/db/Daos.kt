@@ -20,6 +20,13 @@ interface ZoneDao {
     @Query("SELECT COUNT(*) FROM zones")
     suspend fun count(): Int
 
+    @Query("SELECT name FROM zones")
+    suspend fun getNames(): List<String>
+
+    /** Track ids assigned to enabled zones, so their audio can be downloaded ahead of time (spec 4.4). */
+    @Query("SELECT assigned_track_id FROM zones WHERE enabled = 1 AND assigned_track_id IS NOT NULL")
+    suspend fun getAssignedTrackIds(): List<String>
+
     @Upsert
     suspend fun upsert(zone: ZoneEntity)
 

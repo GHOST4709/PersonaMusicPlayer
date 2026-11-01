@@ -17,6 +17,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 @Singleton
@@ -37,6 +38,17 @@ class SettingsRepository @Inject constructor(
     suspend fun setReduceMotion(enabled: Boolean) = update { it[Keys.REDUCE_MOTION] = enabled }
     suspend fun setOnboardingCompleted(done: Boolean) = update { it[Keys.ONBOARDING_COMPLETED] = done }
 
+    /**
+     * Whether the person wants music playing right now. Kept outside [AppSettings] on purpose: it flips on
+     * every Play/Pause and would otherwise recompose the whole UI. The geofence receiver reads it to decide
+     * whether to bring the service back after the OS killed it.
+     */
+    suspend fun setPlaybackActive(active: Boolean) = update { it[Keys.PLAYBACK_ACTIVE] = active }
+
+    suspend fun isPlaybackActive(): Boolean = dataStore.data
+        .catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
+        .first()[Keys.PLAYBACK_ACTIVE] ?: false
+
     private suspend fun update(block: (MutablePreferences) -> Unit) {
         dataStore.edit { block(it) }
     }
@@ -51,6 +63,7 @@ class SettingsRepository @Inject constructor(
         val HAPTICS = booleanPreferencesKey("haptics_enabled")
         val REDUCE_MOTION = booleanPreferencesKey("reduce_motion")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+        val PLAYBACK_ACTIVE = booleanPreferencesKey("playback_active")
     }
 
     private fun Preferences.toSettings(): AppSettings {

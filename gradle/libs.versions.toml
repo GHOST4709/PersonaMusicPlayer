@@ -19,6 +19,7 @@ okhttp = "5.1.0"
 retrofit = "3.0.0"
 media3 = "1.10.1"
 work = "2.10.0"
+playServicesLocation = "21.3.0"   # 21.4.0 exists; bump when convenient
 junit = "4.13.2"
 
 [libraries]
@@ -54,6 +55,8 @@ retrofit-converter-kotlinx-serialization = { group = "com.squareup.retrofit2", n
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 androidx-media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
+
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 

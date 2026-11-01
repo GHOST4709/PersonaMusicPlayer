@@ -24,8 +24,8 @@
 
     <!--
       Permissions are declared up front (spec section 6). Components are declared in the phase that
-      implements them: PlaybackService (Phase 3) is below; GeofenceReceiver, BootReceiver, and the
-      Maps key arrive in Phases 4 and 5.
+      implements them: PlaybackService (Phase 3), GeofenceReceiver and BootReceiver (Phase 4) are below;
+      the Maps key arrives in Phase 5.
     -->
 
     <application
@@ -57,5 +57,20 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
+
+        <!-- Geofence transitions arrive here via a PendingIntent from Google Play services. -->
+        <receiver
+            android:name=".geofence.GeofenceReceiver"
+            android:exported="false" />
+
+        <!-- Re-register geofences after reboot or app update. Does not start playback (Android 15 rule). -->
+        <receiver
+            android:name=".geofence.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

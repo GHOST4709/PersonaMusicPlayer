@@ -33,6 +33,8 @@ import com.example.personabgm.domain.model.CrossfadeCurve
 import com.example.personabgm.ui.components.PersonaButton
 import com.example.personabgm.ui.components.PersonaCard
 import com.example.personabgm.ui.components.PersonaHeading
+import com.example.personabgm.ui.components.PersonaSliderRow
+import com.example.personabgm.ui.components.PersonaSwitchRow
 import com.example.personabgm.ui.formatBytes
 import com.example.personabgm.ui.haptics.LocalHaptics
 import java.util.Locale
@@ -66,7 +68,7 @@ fun SettingsScreen(
         item { SectionTitle("Playback") }
         item {
             PersonaCard(modifier = Modifier.fillMaxWidth()) {
-                SliderRow(
+                PersonaSliderRow(
                     title = "Volume",
                     value = settings.globalVolume,
                     range = 0f..1f,
@@ -75,7 +77,7 @@ fun SettingsScreen(
                     onCommit = onVolumeChange,
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = colors.outline)
-                SliderRow(
+                PersonaSliderRow(
                     title = "Crossfade length",
                     value = settings.crossfadeDurationMs / 1000f,
                     range = 0.5f..8f,
@@ -84,7 +86,7 @@ fun SettingsScreen(
                     onCommit = { onCrossfadeDurationChange((it * 1000).roundToInt()) },
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = colors.outline)
-                SwitchRow(
+                PersonaSwitchRow(
                     title = "Linear crossfade",
                     description = "A straight-line fade instead of the default equal-power curve. " +
                         "Equal-power avoids a dip in loudness halfway through.",
@@ -97,7 +99,7 @@ fun SettingsScreen(
         item { SectionTitle("Audio cache") }
         item {
             PersonaCard(modifier = Modifier.fillMaxWidth()) {
-                SwitchRow(
+                PersonaSwitchRow(
                     title = "Download on Wi-Fi only",
                     description = "Pre-downloads your themes' tracks so they start instantly, even offline.",
                     checked = settings.precacheWifiOnly,
@@ -122,14 +124,14 @@ fun SettingsScreen(
         item { SectionTitle("Interface") }
         item {
             PersonaCard(modifier = Modifier.fillMaxWidth()) {
-                SwitchRow(
+                PersonaSwitchRow(
                     title = "Haptic feedback",
                     description = "Short vibrations when you navigate, switch themes, or drop a pin.",
                     checked = settings.hapticsEnabled,
                     onCheckedChange = onHapticsChange,
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = colors.outline)
-                SwitchRow(
+                PersonaSwitchRow(
                     title = "Reduce motion",
                     description = "Stops background animation and screen transitions. The system " +
                         "\"Remove animations\" setting is also respected.",
@@ -157,75 +159,4 @@ private fun SectionTitle(text: String) {
         color = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier.padding(top = 8.dp),
     )
-}
-
-@Composable
-private fun SwitchRow(
-    title: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    val colors = MaterialTheme.colorScheme
-    val haptics = LocalHaptics.current
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .toggleable(
-                value = checked,
-                role = Role.Switch,
-                onValueChange = {
-                    haptics.tick()
-                    onCheckedChange(it)
-                },
-            )
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = colors.onSurface,
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.onSurfaceVariant,
-            )
-        }
-        // The Row handles the toggle, so the Switch itself is not separately clickable.
-        Switch(checked = checked, onCheckedChange = null)
-    }
-}
-
-/** Slider that shows the live value while dragging but only saves when the finger lifts. */
-@Composable
-private fun SliderRow(
-    title: String,
-    value: Float,
-    range: ClosedFloatingPointRange<Float>,
-    steps: Int,
-    format: (Float) -> String,
-    onCommit: (Float) -> Unit,
-) {
-    val colors = MaterialTheme.colorScheme
-    var dragValue by remember(value) { mutableFloatStateOf(value) }
-
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium, color = colors.onSurface)
-            Text(text = format(dragValue), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
-        }
-        Slider(
-            value = dragValue,
-            onValueChange = { dragValue = it },
-            onValueChangeFinished = { onCommit(dragValue) },
-            valueRange = range,
-            steps = steps,
-            modifier = Modifier.semantics { contentDescription = title },
-        )
-    }
 }

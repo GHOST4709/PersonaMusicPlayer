@@ -83,6 +83,9 @@ dependencies {
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.work.runtime.ktx)
 
+    // Location + geofencing (Phase 4)
+    implementation(libs.play.services.location)
+
     // Kotlin libs / network
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)

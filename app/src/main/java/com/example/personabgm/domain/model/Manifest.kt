@@ -36,11 +36,11 @@ data class Manifest(
     }
 
     /**
-     * Tracks worth downloading ahead of time: every theme's roaming default plus its variants, so the
-     * first trigger plays with no wait (spec 4.4). Zone-assigned tracks are added in Phase 5.
+     * Tracks worth downloading ahead of time (spec 4.4): every theme's roaming default plus every
+     * track assigned to a zone, each with its variants, so the first trigger plays with no wait.
      */
-    fun precacheTracks(): List<Track> =
-        themeDefaults.values
+    fun precacheTracks(assignedTrackIds: Collection<String> = emptyList()): List<Track> =
+        (themeDefaults.values + assignedTrackIds)
             .mapNotNull { trackById(it) }
             .flatMap { variantsOf(it) }
             .distinctBy { it.id }

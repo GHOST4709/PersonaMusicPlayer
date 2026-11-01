@@ -2,6 +2,7 @@ package com.example.personabgm.di
 
 import com.example.personabgm.BuildConfig
 import com.example.personabgm.data.remote.ManifestApi
+import com.example.personabgm.data.remote.WeatherApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -57,5 +58,7 @@ object NetworkModule {
     @Singleton
     fun provideManifestApi(retrofit: Retrofit): ManifestApi = retrofit.create(ManifestApi::class.java)
 
-    // WeatherApi is added in Phase 4.
+    @Provides
+    @Singleton
+    fun provideWeatherApi(retrofit: Retrofit): WeatherApi = retrofit.create(WeatherApi::class.java)
 }

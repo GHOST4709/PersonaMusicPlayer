@@ -14,6 +14,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.example.personabgm.domain.model.AppSettings
+import com.example.personabgm.domain.model.AutoContext
 import com.example.personabgm.domain.model.CrossfadeCurve
 import com.example.personabgm.domain.model.GameTheme
 import com.example.personabgm.domain.model.Manifest
@@ -34,8 +35,9 @@ import kotlinx.coroutines.launch
  * serialized through [switchRequests]; a CONFLATED channel keeps only the latest request, which is
  * exactly the "latest target wins, start after the current fade" rule of spec 4.2.
  *
- * What AUTO plays is decided by [autoTarget]. In Phase 3 it is the active theme's default track;
- * Phase 4 replaces it with the full context resolver (zone, weather, time of day).
+ * What AUTO plays is decided by the context resolver (zone, weather, time of day) and arrives as
+ * [autoContextFlow]; this class only reacts to it. Manual Override ignores it until the person resumes
+ * Auto or a new zone is entered (spec 4.5).
  */
 @OptIn(UnstableApi::class)
 class CrossfadeEngine(
@@ -44,8 +46,11 @@ class CrossfadeEngine(
     private val mediaCache: MediaCache,
     private val settingsFlow: Flow<AppSettings>,
     private val manifestFlow: Flow<Manifest?>,
+    private val autoContextFlow: Flow<AutoContext>,
     private val commands: Flow<PlaybackCommand>,
     private val publishState: (PlaybackUiState) -> Unit,
+    /** Reports every change of "the person wants music" so it can be persisted for crash/kill recovery. */
+    private val onWantsPlaybackChanged: (Boolean) -> Unit = {},
     private val now: () -> Long = SystemClock::elapsedRealtime,
 ) : PlayerCommandHandler {
 
@@ -75,6 +80,7 @@ class CrossfadeEngine(
     // ---- playback intent ----
     private var theme: GameTheme? = null
     private var manifest: Manifest? = null
+    private var autoContext: AutoContext? = null
     private var currentTrack: Track? = null
     private var desiredTrackId: String? = null
     private var mode = PlaybackMode.AUTO
@@ -101,6 +107,7 @@ class CrossfadeEngine(
     fun start() {
         scope.launch { settingsFlow.collect { onSettings(it) } }
         scope.launch { manifestFlow.collect { onManifest(it) } }
+        scope.launch { autoContextFlow.collect { guarded("context change") { onAutoContext(it) } } }
         scope.launch { commands.collect { guarded("command $it") { handle(it) } } }
         scope.launch {
             for (track in switchRequests) {
@@ -143,16 +150,27 @@ class CrossfadeEngine(
         userVolume = settings.globalVolume
         crossfadeCurve = settings.crossfadeCurve
         crossfadeMs = settings.crossfadeDurationMs.toLong()
+        theme = settings.theme
         applyVolumes()
-        if (theme != settings.theme) {
-            theme = settings.theme
-            onAutoContextChanged()
-        }
     }
 
+    /** The manifest is only needed here for track lookups; AUTO follows [autoContextFlow]. */
     private fun onManifest(newManifest: Manifest?) {
         manifest = newManifest
-        onAutoContextChanged()
+    }
+
+    private fun onAutoContext(context: AutoContext) {
+        val previousZoneId = autoContext?.info?.zoneId
+        autoContext = context
+
+        // A new zone is a context change the person did not ask for: it ends Manual Override (spec 4.5).
+        val enteredNewZone = context.info.zoneId != null && context.info.zoneId != previousZoneId
+        if (mode == PlaybackMode.MANUAL && enteredNewZone) {
+            resumeAuto()
+        } else {
+            onAutoContextChanged()
+            publish()
+        }
     }
 
     private fun handle(command: PlaybackCommand) {
@@ -162,6 +180,7 @@ class CrossfadeEngine(
             PlaybackCommand.Next -> onNext()
             PlaybackCommand.Previous -> onPrevious()
             PlaybackCommand.ResumeAuto -> resumeAuto()
+            PlaybackCommand.AutoResume -> if (!wantsPlayback) play()
             is PlaybackCommand.PlayTrack -> manifest?.trackById(command.trackId)?.let { playTrack(it) }
         }
     }
@@ -176,10 +195,7 @@ class CrossfadeEngine(
     // Selection: what should be playing
     // =====================================================================================
 
-    private fun autoTarget(): Track? {
-        val activeTheme = theme ?: return null
-        return manifest?.themeDefault(activeTheme)
-    }
+    private fun autoTarget(): Track? = autoContext?.target
 
     private fun desiredTrack(): Track? = if (mode == PlaybackMode.MANUAL) manualTrack else autoTarget()
 
@@ -206,7 +222,8 @@ class CrossfadeEngine(
     private fun step(forward: Boolean) {
         failedOnce.clear()
         val m = manifest ?: return
-        val pool = theme?.let { m.tracksFor(it) }.orEmpty()
+        val activeTheme = autoContext?.info?.theme ?: theme
+        val pool = activeTheme?.let { m.tracksFor(it) }.orEmpty()
         val target: Track? = if (forward) {
             navigator.next(currentTrack?.id, pool)
         } else {
@@ -237,6 +254,12 @@ class CrossfadeEngine(
     // Transport
     // =====================================================================================
 
+    private fun setWants(value: Boolean) {
+        if (wantsPlayback == value) return
+        wantsPlayback = value
+        onWantsPlaybackChanged(value)
+    }
+
     private fun play() {
         failedOnce.clear()
         if (!focus.request()) {
@@ -245,7 +268,7 @@ class CrossfadeEngine(
             return
         }
         val wasWanting = wantsPlayback
-        wantsPlayback = true
+        setWants(true)
         focusPaused = false
         focusPolicy.reset()
         duck = 1f
@@ -255,7 +278,7 @@ class CrossfadeEngine(
         when {
             loaded == null -> {
                 if (desired == null) {
-                    wantsPlayback = false
+                    setWants(false)
                     focus.abandon()
                     error = "No track is available yet."
                     publish()
@@ -276,7 +299,7 @@ class CrossfadeEngine(
     }
 
     private fun pause() {
-        wantsPlayback = false
+        setWants(false)
         focusPaused = false
         focusPolicy.onUserPause()
         activePlayer.playWhenReady = false
@@ -429,7 +452,7 @@ class CrossfadeEngine(
             activePlayer.playWhenReady = false
             inactivePlayer.playWhenReady = false
             if (decision.abandonFocus) {
-                wantsPlayback = false
+                setWants(false)
                 focusPaused = false
                 focus.abandon()
             } else {
@@ -500,6 +523,7 @@ class CrossfadeEngine(
                 isCrossfading = isCrossfading,
                 mode = mode,
                 error = error,
+                context = autoContext?.info,
             ),
         )
     }

@@ -3,6 +3,7 @@ package com.example.personabgm.audio
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -45,18 +46,43 @@ class PlaybackRemote @Inject constructor(
     }
 
     /**
+     * For events with no UI on screen (a geofence transition). Uses `startForegroundService`, which Android
+     * allows from a geofence receiver; the service posts a notification within seconds of starting (see
+     * `PlaybackService.promoteToForeground`). If the OS refuses, fall back to a tap-to-resume notification
+     * (spec 4.1). Returns whether the service was started.
+     */
+    fun sendFromBackground(command: PlaybackCommand): Boolean {
+        commandChannel.trySend(command)
+        val intent = Intent(context, PlaybackService::class.java)
+            .putExtra(PlaybackService.EXTRA_FOREGROUND_START, true)
+        return try {
+            ContextCompat.startForegroundService(context, intent)
+            true
+        } catch (e: Exception) {
+            // ForegroundServiceStartNotAllowedException (Android 12+) is an IllegalStateException.
+            Log.w(TAG, "Could not start the playback service from the background", e)
+            drainQueue()
+            ResumeNotification.show(context)
+            false
+        }
+    }
+
+    /**
      * Started from the foreground UI, which is always allowed. Media3 promotes the service to a
-     * foreground service itself once playback begins. (Background starts, such as geofence events,
-     * arrive in Phase 4 and use the geofence exemption.)
+     * foreground service itself once playback begins.
      */
     private fun startService() {
         try {
             context.startService(Intent(context, PlaybackService::class.java))
         } catch (e: IllegalStateException) {
             Log.w(TAG, "Could not start the playback service", e)
-            // Do not leave the command queued for a service that is not coming.
-            while (commandChannel.tryReceive().isSuccess) { /* drain */ }
+            drainQueue()
         }
+    }
+
+    /** Do not leave commands queued for a service that is not coming. */
+    private fun drainQueue() {
+        while (commandChannel.tryReceive().isSuccess) { /* discard */ }
     }
 
     private companion object {

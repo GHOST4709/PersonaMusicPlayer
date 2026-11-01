@@ -10,9 +10,9 @@ Persona 3 Reload / Persona 4 Revival / Persona 5 Royal look. Full spec: `docs/PE
 | 0 | Scaffold: Gradle, Hilt, Room, DataStore, OkHttp/Json, Navigation | Done |
 | 1 | Theme system: 3 themes, animated live switching, haptics, reduce-motion, shared components | Done |
 | 2 | Manifest API + validation + offline cache, LCE screens | Done |
-| 3 | Audio engine: dual ExoPlayer crossfade, focus, cache, MediaSession | **Done (this drop)** |
-| 4 | Context resolver + geofencing + weather | Next |
-| 5 | Onboarding, map, zone editor | |
+| 3 | Audio engine: dual ExoPlayer crossfade, focus, cache, MediaSession | Done |
+| 4 | Context resolver + geofencing + weather + time of day | **Done (this drop)** |
+| 5 | Onboarding, map, zone editor | Next |
 | 6 | Polish and QA | |
 
 ## Open it
@@ -88,6 +88,56 @@ Plain `http://` URLs are rejected on purpose (spec 7.1).
 11. Point a manifest track at a dead URL and crossfade to it: stays on the current track, shows a message, retries once.
 12. Listen to the loop point of each file for a gap. If you hear one, encode the loops as Opus/OGG.
 
+## Phase 4: context (zones, weather, time of day)
+
+AUTO now plays what the context says instead of "the theme's default". Priority is the two-stage rule of
+spec 5.3: first the **base track** (the active zone's assigned track, else the theme's roaming default),
+then the best **variant** of that track's `variant_group` for the current weather (+2) and time of day (+1).
+If no variant fits, the base track plays; a zone is never silent.
+
+| Piece | File | Notes |
+| :--- | :--- | :--- |
+| Resolver | `domain/resolver/ContextResolver.kt` | Pure function, 17 tests including the case that broke the v1 cascade |
+| Active zone | `context/ZoneTracker.kt` | Most recent DWELL wins, 15 s exit grace cancelled by re-entry, falls back to an overlapping zone |
+| Wiring | `context/ContextEngine.kt` | Combines settings, manifest, zones, zone state, weather, and time into `AutoContext`; 1 s debounce after the first value |
+| Weather | `context/Weather.kt`, `data/repository/WeatherRepository.kt` | Open-Meteo, 20 min cadence, refetch after moving 5 km, CLEAR after 3 h, coordinates rounded to 2 decimals |
+| Time of day | `context/TimeBuckets.kt` | Day 06:00 to 18:00; DST-safe; re-evaluated on clock, date, and time zone changes |
+| Geofences | `geofence/GeofenceManager.kt` | DWELL with 15,000 ms loitering delay + EXIT; idempotent `sync()`; mutable PendingIntent (Android 12+) |
+| Receivers | `geofence/GeofenceReceiver.kt`, `BootReceiver.kt` | Persist the transition first; boot only re-registers (Android 15 forbids starting media services from boot) |
+| Safety net | `geofence/GeofenceHealthWorker.kt` | Re-registers about every 12 h; also on every app start |
+| Zones | `data/repository/ZoneRepository.kt`, `ui/zones/` | Add-here, radius 100 to 500 m (default 150), per-zone music, enable, delete; 100-zone limit |
+
+Manual Override still wins over AUTO, except that entering a **new zone** ends it (spec 4.5).
+
+If the OS kills the service while you are listening, the next geofence transition starts it again and music
+resumes (the service posts a placeholder notification immediately so Android's start-in-foreground deadline
+is met, and falls back to a tap-to-resume notification if Android refuses the start).
+
+### Setting up a zone (there is no map yet)
+
+1. Open **Zones**, tap **Allow location**, then **Open settings** and choose **Allow all the time**
+   (Android 11 and newer will not show that as a dialog).
+2. Stand where you want a zone and tap **Add zone here**.
+3. **Change music** to give it its own track (it downloads ahead of time), then press Play on Home.
+
+### Device test checklist for Phase 4
+
+1. Add a zone, give it a different track from your theme's default, press Play: you hear the theme default.
+2. Walk out of the zone (more than the radius plus about 100 m) and back in. After the 15 s dwell the music
+   crossfades to the zone's track; Home shows the zone name and the Zones screen shows **Inside**.
+   Geofence events can lag by a minute or more; that is the platform, not a bug.
+3. Leave again: about 15 s later it crossfades back to the theme default.
+4. Tap a Library track (Manual pick), then enter a zone: Manual Override ends and the zone's track plays.
+5. Move the device clock across 18:00: the Day/Night chip flips; a track group with day and night variants switches.
+6. Weather: needs rain (WMO codes 51 to 99). To test without waiting, temporarily make
+   `WeatherMapper.fromWmoCode` return `RAIN` and confirm a rain-tagged variant plays; then revert.
+7. Reboot with a zone registered: open the app; Zones should say it is watching. No music starts by itself
+   after boot (by design).
+8. While playing, run `adb shell am kill com.example.personabgm` (kills the background process), then cross a
+   zone boundary: music should come back. This exercises the foreground-start path.
+9. Two overlapping zones: the one you dwelled in most recently wins; leaving it falls back to the other.
+10. Airplane mode: zones keep working, weather counts as clear.
+
 ## What you should see
 
 On a debug build with the placeholder URL: a short "Connecting..." screen, then Home. Open
@@ -121,18 +171,36 @@ apply within a track's `variant_group` only.
 
 ## Verification status of this drop
 
-- **Run here for real (56 tests, all passing):** `ManifestValidatorTest` (21), `FocusPolicyTest` (11),
-  `OverrideNavigatorTest` (10), `FadeMathTest` (9), plus `GameThemeTest`, `ManifestPrecacheTest`, and
-  `ByteFormatTest`. They were compiled and run on the JVM with the Kotlin 2.3.21 compiler against small
-  JUnit shims. Mutation checks confirmed they fail when the logic is broken (URL validation removed,
-  equal-power fade replaced by linear, permanent focus loss keeping its pending resume).
+- **Run here for real (114 tests, all passing):** `ManifestValidatorTest` (21), `ContextResolverTest` (17),
+  `WeatherTest` (15), `ZoneTrackerTest` (14), `FocusPolicyTest` (11), `OverrideNavigatorTest` (10),
+  `FadeMathTest` (9), `TimeBucketsTest` (6, including both DST changeovers), `ZoneRulesTest` (5),
+  `ManifestPrecacheTest` (3), plus `GameThemeTest` and `ByteFormatTest`. They were compiled and run on the
+  JVM with the Kotlin 2.3.21 compiler against small JUnit shims. Mutation checks confirmed they fail when
+  the logic is broken (URL validation removed, equal-power fade replaced by linear, permanent focus loss
+  keeping its pending resume, weather and time points swapped, re-entry no longer cancelling a pending
+  exit, the 3-hour staleness cutoff off by one).
 - **Not run here:** `ManifestJsonParsingTest` (needs kotlinx-serialization's compiler plugin),
   `PaletteContrastTest` (needs Compose), and **everything that touches Android**: the engine, service,
-  cache, worker, Hilt wiring, Room, Retrofit, and all Compose screens. The crossfade orchestration itself
-  (timing, player state, session rebind) has no automated test at all yet; the device checklist above is
-  how it gets verified.
+  cache, workers, receivers, geofence registration, the context engine's flow wiring, Hilt wiring, Room,
+  Retrofit, and all Compose screens. The crossfade orchestration (timing, player state, session rebind)
+  and the flow plumbing in `ContextEngine` have no automated test; the device checklists are how they get
+  verified.
 - The source was also checked with the Kotlin compiler for syntax errors (none), and every
   project-internal import was checked to resolve to a real declaration.
+
+## Phase 4 risks to watch on the first real run
+
+- **Starting the service from a geofence event.** Android lists geofence transitions as an exemption for
+  starting a foreground service from the background. This is the documented design but I could not test
+  it. If it is refused you get the tap-to-resume notification instead; tell me and I will adjust.
+- **Geofence reliability.** Latency of a minute or more is normal; OEM battery managers can still stop
+  delivery. The health worker and the on-start re-registration are the mitigation; Phase 5 adds the
+  battery-optimization onboarding step that matters most here.
+- **Weather terms.** Open-Meteo's free API is for non-commercial use; check its terms before any release.
+- **Wall-clock timestamps.** Zone state uses epoch milliseconds, so a large manual clock change can skew
+  the 15 s exit grace for that one transition.
+- `ENTER` events are not requested (nothing uses them; every event wakes the app). The spec's code sample
+  listed them as an optional UI hint.
 
 ## Design notes for Phase 3
 
@@ -170,7 +238,7 @@ apply within a track's `variant_group` only.
 - System fonts only. Distinct bundled fonts per theme are a Phase 6 polish item.
 - System "Remove animations" is read once per process; the in-app toggle applies live.
 - `ShimmerBox` exists but is first used in Phase 5 (map skeleton).
-- No context logic yet: no zones, weather, or time-of-day (Phase 4). No zone-assigned pre-caching (Phase 5).
+- No map yet: zones are managed from a list (Phase 5 adds the map, the zone editor with drop-a-pin, and onboarding).
 - Release builds are not minified yet (keep rules arrive in Phase 6).
 
 ## If Gradle sync or the first build fails
