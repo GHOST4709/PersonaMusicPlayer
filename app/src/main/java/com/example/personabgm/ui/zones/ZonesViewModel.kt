@@ -6,6 +6,7 @@ import com.example.personabgm.audio.PrecacheScheduler
 import com.example.personabgm.data.local.db.ZoneStateDao
 import com.example.personabgm.data.repository.AddZoneResult
 import com.example.personabgm.data.repository.ZoneRepository
+import com.example.personabgm.domain.model.LatLng
 import com.example.personabgm.domain.model.Zone
 import com.example.personabgm.domain.model.ZoneRules
 import com.example.personabgm.domain.model.ZoneStateValue
@@ -52,6 +53,21 @@ class ZonesViewModel @Inject constructor(
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
+    private val _selectedId = MutableStateFlow<String?>(null)
+    val selectedId: StateFlow<String?> = _selectedId.asStateFlow()
+
+    /** Where the device is, to centre the map when there are no zones yet. */
+    private val _deviceLocation = MutableStateFlow<LatLng?>(null)
+    val deviceLocation: StateFlow<LatLng?> = _deviceLocation.asStateFlow()
+
+    fun select(id: String?) {
+        _selectedId.value = id
+    }
+
+    fun loadDeviceLocation() {
+        viewModelScope.launch { _deviceLocation.value = locationProvider.lastKnown() ?: locationProvider.current() }
+    }
+
     /** Call on resume and after a permission result; registers geofences as soon as location is granted. */
     fun refreshAccess() {
         val latest = readAccess()
@@ -69,16 +85,33 @@ class ZonesViewModel @Inject constructor(
         viewModelScope.launch {
             _busy.value = true
             val location = locationProvider.current()
-            _message.value = when {
-                location == null -> "Couldn't get your location. Check that location is on and allowed."
-                else -> when (val result = zoneRepository.add(location)) {
-                    is AddZoneResult.Added -> "Added ${result.zone.name} at your location."
-                    AddZoneResult.LimitReached -> "You've reached the limit of ${ZoneRules.MAX_ZONES} zones."
-                    AddZoneResult.InvalidLocation -> "That location can't be used for a zone."
-                }
+            if (location == null) {
+                _message.value = "Couldn't get your location. Check that location is on and allowed."
+            } else {
+                add(location, "at your location")
             }
             _busy.value = false
         }
+    }
+
+    /** Press-and-hold on the map drops a zone exactly there. */
+    fun addZoneAt(lat: Double, lng: Double) {
+        viewModelScope.launch { add(LatLng(lat, lng), "on the map") }
+    }
+
+    private suspend fun add(location: LatLng, where: String) {
+        _message.value = when (val result = zoneRepository.add(location)) {
+            is AddZoneResult.Added -> {
+                _selectedId.value = result.zone.id
+                "Added ${result.zone.name} $where."
+            }
+            AddZoneResult.LimitReached -> "You've reached the limit of ${ZoneRules.MAX_ZONES} zones."
+            AddZoneResult.InvalidLocation -> "That location can't be used for a zone."
+        }
+    }
+
+    fun rename(id: String, name: String) {
+        viewModelScope.launch { zoneRepository.rename(id, name) }
     }
 
     fun setRadius(id: String, radiusM: Float) {
@@ -97,6 +130,7 @@ class ZonesViewModel @Inject constructor(
     }
 
     fun delete(id: String) {
+        if (_selectedId.value == id) _selectedId.value = null
         viewModelScope.launch { zoneRepository.delete(id) }
     }
 

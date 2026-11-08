@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -7,6 +9,13 @@ plugins {
     // Note: no kotlin-android plugin (AGP 9 built-in Kotlin).
 }
 
+// The Maps API key lives in local.properties (never committed): MAPS_API_KEY=your-key
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val mapsApiKey: String = localProperties.getProperty("MAPS_API_KEY", "").trim()
+
 android {
     namespace = "com.example.personabgm"
     compileSdk = 36
@@ -15,23 +24,34 @@ android {
         applicationId = "com.example.personabgm"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 6
+        versionName = "0.6.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Track manifest location (spec 7.1: configurable per build type). Replace the placeholder
         // with your own host. Must be https; cleartext traffic is disabled.
         buildConfigField("String", "MANIFEST_URL", "\"https://cdn.example.com/manifest.json\"")
+
+        // Google Maps key for the zone map. Without one the Zones screen shows a note instead of a blank map.
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+        buildConfigField("boolean", "HAS_MAPS_API_KEY", mapsApiKey.isNotEmpty().toString())
     }
 
     buildTypes {
         release {
-            // Enabled in Phase 6 together with keep rules for Hilt/Room/serialization.
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+        }
+
+        // Minified exactly like release, but signed with the debug key so it can be installed and tested.
+        // Use this to verify the keep rules before shipping: `./gradlew :app:installReleaseCheck`.
+        create("releaseCheck") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
@@ -65,6 +85,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
 
@@ -83,8 +104,10 @@ dependencies {
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.work.runtime.ktx)
 
-    // Location + geofencing (Phase 4)
+    // Location + geofencing (Phase 4), map (Phase 5)
     implementation(libs.play.services.location)
+    implementation(libs.maps.compose)
+    implementation(libs.play.services.maps)
 
     // Kotlin libs / network
     implementation(libs.kotlinx.coroutines.android)

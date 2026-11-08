@@ -8,6 +8,8 @@ data class AppSettings(
     val crossfadeCurve: CrossfadeCurve = CrossfadeCurve.EQUAL_POWER,
     val weatherOverrideEnabled: Boolean = true,
     val precacheWifiOnly: Boolean = true,
+    /** Use the device's own location while the app is open to notice arriving/leaving sooner (spec 5.2). */
+    val fastZoneDetection: Boolean = true,
     val hapticsEnabled: Boolean = true,
     val reduceMotion: Boolean = false,
     val onboardingCompleted: Boolean = false,

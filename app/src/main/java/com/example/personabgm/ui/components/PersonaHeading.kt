@@ -29,9 +29,10 @@ fun PersonaHeading(text: String, modifier: Modifier = Modifier) {
     val style = LocalPersonaStyle.current
     val colors = MaterialTheme.colorScheme
     val textStyle = MaterialTheme.typography.headlineMedium
+    val root = modifier.headingSemantics()
 
     when (style.theme) {
-        GameTheme.PERSONA_3_RELOAD -> Column(modifier) {
+        GameTheme.PERSONA_3_RELOAD -> Column(root) {
             Text(text = text, style = textStyle, color = colors.onBackground)
             Spacer(Modifier.height(8.dp))
             Box(
@@ -43,7 +44,7 @@ fun PersonaHeading(text: String, modifier: Modifier = Modifier) {
         }
 
         GameTheme.PERSONA_4_REVIVAL -> Box(
-            modifier
+            root
                 .rotate(-2f)
                 .background(colors.primary, style.shapes.badge)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -51,7 +52,7 @@ fun PersonaHeading(text: String, modifier: Modifier = Modifier) {
             Text(text = text, style = textStyle, color = colors.onPrimary)
         }
 
-        GameTheme.PERSONA_5_ROYAL -> Box(modifier.rotate(-3f)) {
+        GameTheme.PERSONA_5_ROYAL -> Box(root.rotate(-3f)) {
             Box(
                 Modifier
                     .offset(x = 6.dp, y = 6.dp)

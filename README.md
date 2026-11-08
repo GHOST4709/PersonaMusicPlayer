@@ -11,9 +11,9 @@ Persona 3 Reload / Persona 4 Revival / Persona 5 Royal look. Full spec: `docs/PE
 | 1 | Theme system: 3 themes, animated live switching, haptics, reduce-motion, shared components | Done |
 | 2 | Manifest API + validation + offline cache, LCE screens | Done |
 | 3 | Audio engine: dual ExoPlayer crossfade, focus, cache, MediaSession | Done |
-| 4 | Context resolver + geofencing + weather + time of day | **Done (this drop)** |
-| 5 | Onboarding, map, zone editor | Next |
-| 6 | Polish and QA | |
+| 4 | Context resolver + geofencing + weather + time of day | Done |
+| 5 | Onboarding, map, zone editor, permission health, GPS banner | Done |
+| 6 | Polish and QA: fonts, accessibility, minification, debug panel, fast zone detection, test plan | **Done (this drop)**: needs your device testing |
 
 ## Open it
 
@@ -113,12 +113,11 @@ If the OS kills the service while you are listening, the next geofence transitio
 resumes (the service posts a placeholder notification immediately so Android's start-in-foreground deadline
 is met, and falls back to a tap-to-resume notification if Android refuses the start).
 
-### Setting up a zone (there is no map yet)
+### Setting up a zone
 
-1. Open **Zones**, tap **Allow location**, then **Open settings** and choose **Allow all the time**
-   (Android 11 and newer will not show that as a dialog).
-2. Stand where you want a zone and tap **Add zone here**.
-3. **Change music** to give it its own track (it downloads ahead of time), then press Play on Home.
+Run the first-launch setup (Phase 5) so the permissions are in place, then open **Zones** and either press and
+hold the map, or stand where you want one and tap **Add zone here**. **Change music** gives it its own track
+(it downloads ahead of time). Press Play on Home.
 
 ### Device test checklist for Phase 4
 
@@ -129,14 +128,77 @@ is met, and falls back to a tap-to-resume notification if Android refuses the st
 3. Leave again: about 15 s later it crossfades back to the theme default.
 4. Tap a Library track (Manual pick), then enter a zone: Manual Override ends and the zone's track plays.
 5. Move the device clock across 18:00: the Day/Night chip flips; a track group with day and night variants switches.
-6. Weather: needs rain (WMO codes 51 to 99). To test without waiting, temporarily make
-   `WeatherMapper.fromWmoCode` return `RAIN` and confirm a rain-tagged variant plays; then revert.
+6. Weather: use **Settings > About > Debug panel** (debug builds) to pretend it is raining or snowing, and
+   confirm a rain- or snow-tagged variant of the playing slot is chosen. Choose **Real** to go back.
 7. Reboot with a zone registered: open the app; Zones should say it is watching. No music starts by itself
    after boot (by design).
 8. While playing, run `adb shell am kill com.example.personabgm` (kills the background process), then cross a
    zone boundary: music should come back. This exercises the foreground-start path.
 9. Two overlapping zones: the one you dwelled in most recently wins; leaving it falls back to the other.
 10. Airplane mode: zones keep working, weather counts as clear.
+
+## Phase 5: onboarding, map, and keeping it reliable
+
+| Piece | File | Notes |
+| :--- | :--- | :--- |
+| Setup flow | `ui/onboarding/OnboardingScreen.kt`, `domain/permissions/OnboardingPlan.kt` | Welcome + theme, Location, Background location (its own step), Notifications, Battery, Bluetooth. Steps adapt to the Android version; every step can be skipped |
+| Permission health | `domain/permissions/PermissionHealth.kt`, `ui/permissions/PermissionHealthCard.kt` | Re-checked on every resume. Shows the most important problem with a one-tap fix; location problems cannot be hidden, others can ("Not now") until next launch |
+| GPS banner | `ui/permissions/PermissionHealthCard.kt` (`GpsBanner`) | High-contrast bar when the device's Location Services are off; follows the toggle live |
+| One place for all asks | `ui/permissions/PermissionActions.kt` | Runtime requests plus every system screen (battery, app settings, auto-revoke, notification settings), with fallbacks |
+| Map | `ui/zones/ZoneMap.kt`, `ui/zones/ZonesScreen.kt` | Press and hold to drop a zone (haptic), tap to select, radius circles in theme colours, theme-coloured skeleton until the map renders |
+| Zone editor | `ui/zones/ZonesScreen.kt` | Rename, radius 100 to 500 m, per-zone music, enable, delete (with confirmation) |
+| Battery / OEM help | `domain/permissions/OemGuidance.kt`, Settings > Reliability | Samsung, Xiaomi, OnePlus, Oppo/Realme/Vivo, Huawei/Honor advice with links; "Keep permissions" shortcut for Android's auto-revoke |
+
+First launch opens setup; afterwards it opens Home. **Settings > Reliability > Run setup again** repeats it.
+
+### Turning the map on
+
+The map needs a Google Maps API key. Without one the Zones screen shows a note and everything else still works.
+
+1. In Google Cloud, enable **Maps SDK for Android** and create an API key.
+2. Restrict the key to this app: Android apps, package `com.example.personabgm` (or yours) plus your debug/release
+   SHA-1 fingerprints. An unrestricted key can be abused if it leaks.
+3. Add `MAPS_API_KEY=your-key` to `local.properties` (it is git-ignored) and rebuild.
+
+### Device test checklist for Phase 5
+
+1. Fresh install: setup opens. Pick a theme; the app restyles immediately.
+2. Location step: deny once, then allow with **Approximate** only. The step warns that precise location is needed.
+   Allow **Precise**: it shows Allowed.
+3. Background step: on Android 11+ the button opens the app's location settings page (not a dialog). Choose
+   "Allow all the time", return: it shows Allowed. On Android 11+ also open "Keep permissions".
+4. Skip a step, finish setup: Home shows a health card for what you skipped, with a working fix button.
+5. Revoke location in system settings while the app is open, come back: the health card appears. Turn the
+   device's Location Services off: the red banner appears and "Turn on" opens the right settings screen.
+6. Battery step on a Samsung or Xiaomi phone shows the brand advice and link.
+7. Zones: press and hold the map to drop a zone (you feel a haptic), rename it, change its radius (the circle
+   updates), assign music, delete it (confirmation appears).
+8. With no network or no map key, the Zones screen still works from the list.
+9. Settings > Reliability > Run setup again opens setup; finishing returns to Settings.
+
+## Phase 6: polish and QA
+
+| Piece | Where | Notes |
+| :--- | :--- | :--- |
+| Fast zone detection | `geofence/ForegroundProximityMonitor.kt`, `context/ProximityTracker.kt` | While the app is on screen, uses the device's own location to notice arriving and leaving in seconds. Conservative (needs the whole accuracy circle inside or outside), same 15 s dwell as the real geofence, only runs in the foreground. Switch in Settings > Zones |
+| Bundled fonts | `res/font/`, `ui/theme/PersonaStyle.kt` | Rajdhani (P3), Lilita One (P4), Anton (P5) for headings, titles, and labels; body text stays on the system font. All SIL OFL; licenses in `assets/licenses/` and `docs/licenses/` |
+| Accessibility | `ui/components/Semantics.kt` and the screens | Headings are real headings, status changes are announced, decorative pieces are hidden, the map is described and its zones are also a list |
+| Release build | `app/proguard-rules.pro`, `app/build.gradle.kts` | Minification and resource shrinking on; keep rules for serialization and the Retrofit interfaces; new **`releaseCheck`** build type (minified, debug-signed) so you can test the keep rules |
+| Debug panel | `ui/debug/` (debug builds only) | Live view of playback, context, zones and their state, geofence status, weather, cache, manifest, permissions; **pretend the weather or time**; re-register geofences; **Copy report** for bug reports |
+| Test plan | `docs/TEST_PLAN.md` | The full device test matrix (about 100 cases) with a result column |
+| Spec differences | `docs/CHANGES_FROM_SPEC.md` | Every place the build interprets, extends, or departs from the spec |
+
+### What Phase 6 could not do
+
+Battery and performance **numbers**, a listening check of the loop points, TalkBack and large-font behavior, and a
+first run of the minified build all need a real phone. They are written up as procedures in `docs/TEST_PLAN.md`
+(sections 8 to 10), with suggested targets to adjust after you have measured.
+
+### Testing the minified build
+
+`./gradlew :app:installReleaseCheck`, then run the checklists again. Because minification changes behavior only
+at runtime, the cases that matter most are in section 10 of the test plan (manifest decoding, workers, geofence
+receivers, weather decoding). Keep each release's `mapping.txt` to read crash traces.
 
 ## What you should see
 
@@ -171,22 +233,41 @@ apply within a track's `variant_group` only.
 
 ## Verification status of this drop
 
-- **Run here for real (114 tests, all passing):** `ManifestValidatorTest` (21), `ContextResolverTest` (17),
-  `WeatherTest` (15), `ZoneTrackerTest` (14), `FocusPolicyTest` (11), `OverrideNavigatorTest` (10),
-  `FadeMathTest` (9), `TimeBucketsTest` (6, including both DST changeovers), `ZoneRulesTest` (5),
-  `ManifestPrecacheTest` (3), plus `GameThemeTest` and `ByteFormatTest`. They were compiled and run on the
+- **Run here for real (158 tests, all passing):** `ManifestValidatorTest` (21), `ContextResolverTest` (17),
+  `ProximityTrackerTest` (17), `WeatherTest` (15), `ZoneTrackerTest` (14), `FocusPolicyTest` (11),
+  `OverrideNavigatorTest` (10), `FadeMathTest` (9), `OnboardingPlanTest` (9), `PermissionHealthTest` (9),
+  `TimeBucketsTest` (6, including both DST changeovers), `ZoneRulesTest` (5), `OemGuidanceTest` (4),
+  `ManifestPrecacheTest` (3), `DebugReportTest` (3), `TimeFormatTest` (2), plus `GameThemeTest` and
+  `ByteFormatTest`. They were compiled and run on the
   JVM with the Kotlin 2.3.21 compiler against small JUnit shims. Mutation checks confirmed they fail when
   the logic is broken (URL validation removed, equal-power fade replaced by linear, permanent focus loss
   keeping its pending resume, weather and time points swapped, re-entry no longer cancelling a pending
-  exit, the 3-hour staleness cutoff off by one).
+  exit, the 3-hour staleness cutoff off by one, the background-location step shown on every Android version,
+  background location requestable before foreground, background issue ranked above missing foreground, the
+  fast path ignoring accuracy, re-dwelling zones already stored as inside, and never cancelling a pending exit).
 - **Not run here:** `ManifestJsonParsingTest` (needs kotlinx-serialization's compiler plugin),
   `PaletteContrastTest` (needs Compose), and **everything that touches Android**: the engine, service,
-  cache, workers, receivers, geofence registration, the context engine's flow wiring, Hilt wiring, Room,
-  Retrofit, and all Compose screens. The crossfade orchestration (timing, player state, session rebind)
+  cache, workers, receivers, geofence registration, the context engine's flow wiring, the permission and
+  settings intents, the Google Maps screen, Hilt wiring, Room, Retrofit, and all Compose screens. The crossfade orchestration (timing, player state, session rebind)
   and the flow plumbing in `ContextEngine` have no automated test; the device checklists are how they get
   verified.
-- The source was also checked with the Kotlin compiler for syntax errors (none), and every
-  project-internal import was checked to resolve to a real declaration.
+- The source was also checked with the Kotlin compiler for syntax errors (none), every
+  project-internal import was checked to resolve to a real declaration, and a scan checked that every
+  Compose extension function and delegate used in the UI is imported. That scan found and fixed one bad
+  import (`matchParentSize` is a `BoxScope` member, not a top-level function) before it reached you.
+
+## Phase 5 risks to watch on the first real run
+
+- **Maps Compose version.** Pinned to 6.9.0 (8.x exists) because the zone map was written against the 6.x API;
+  it avoids the marker-state helpers whose names changed between versions. If you bump it, expect to touch
+  `ZoneMap.kt` only.
+- **Map key.** A missing key hides the map by design. A wrong or unrestricted key shows a blank grey map or
+  leaks quota; check logcat for "Authorization failure".
+- **Battery exemption on Google Play.** `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` is restricted for apps
+  published there (see spec 5.7). Fine for personal builds.
+- **Android 11+ background location** cannot be granted from a dialog. The app opens the right settings page,
+  but it cannot see the choice until you return; it re-checks on resume.
+- **Notifications and Bluetooth** are optional by design: playback and pause-on-disconnect work without them.
 
 ## Phase 4 risks to watch on the first real run
 
@@ -230,16 +311,15 @@ apply within a track's `variant_group` only.
   promotes it when playback begins. Starts from the background (geofence events) are Phase 4.
 - **Clearing the audio cache while a track plays** can briefly interrupt that track; the engine's error
   retry recovers it.
-- **Temporary notification prompt.** Home asks for the notification permission the first time Play is
-  pressed; Phase 5 moves this into onboarding.
 
 ## Not done yet / known gaps
 
-- System fonts only. Distinct bundled fonts per theme are a Phase 6 polish item.
+- Localization: UI strings are in code, English only.
 - System "Remove animations" is read once per process; the in-app toggle applies live.
 - `ShimmerBox` exists but is first used in Phase 5 (map skeleton).
-- No map yet: zones are managed from a list (Phase 5 adds the map, the zone editor with drop-a-pin, and onboarding).
-- Release builds are not minified yet (keep rules arrive in Phase 6).
+- Map style is one muted dark style for all three themes (the zone circles carry the theme colour).
+- Release builds are minified, but the keep rules have never run: test the `releaseCheck` build first.
+- Battery/performance numbers and baseline profiles are not measured; see `docs/TEST_PLAN.md` section 9.
 
 ## If Gradle sync or the first build fails
 

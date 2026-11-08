@@ -56,6 +56,7 @@ class ContextEngine(
     zoneStateDao: ZoneStateDao,
     private val weatherRepository: WeatherRepository,
     private val locationProvider: LocationProvider,
+    private val debugOverrides: DebugOverrides,
     /** Emits when the system clock, date, or time zone changes. */
     timeChanges: Flow<Unit>,
     private val now: () -> Long = System::currentTimeMillis,
@@ -75,12 +76,12 @@ class ContextEngine(
     val activeZoneId: SharedFlow<String?> = activeZoneFlow().shareIn(scope, SharingStarted.Eagerly, replay = 1)
 
     private val weather: Flow<WeatherType> =
-        combine(weatherRepository.snapshot, ticker(STALENESS_CHECK_MS)) { snapshot, _ ->
-            WeatherPolicy.effective(snapshot, now())
+        combine(weatherRepository.snapshot, debugOverrides.weather, ticker(STALENESS_CHECK_MS)) { snapshot, forced, _ ->
+            forced ?: WeatherPolicy.effective(snapshot, now())
         }.distinctUntilChanged()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val timeBucket: Flow<TimeBucket> = merge(flowOf(Unit), timeChanges)
+    private val realTimeBucket: Flow<TimeBucket> = merge(flowOf(Unit), timeChanges)
         .transformLatest {
             // Restarted on every clock change, so the timer below always aims at the next real boundary.
             emit(Unit)
@@ -91,6 +92,9 @@ class ContextEngine(
         }
         .map { TimeBuckets.at(ZonedDateTime.now().toLocalTime()) }
         .distinctUntilChanged()
+
+    private val timeBucket: Flow<TimeBucket> =
+        combine(realTimeBucket, debugOverrides.time) { real, forced -> forced ?: real }.distinctUntilChanged()
 
     /** Debounced 1 s after the first value (spec 5.6) and de-duplicated, so identical results never re-trigger a fade. */
     val autoContext: Flow<AutoContext> = run {

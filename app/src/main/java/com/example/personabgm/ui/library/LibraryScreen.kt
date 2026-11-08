@@ -33,6 +33,7 @@ import com.example.personabgm.ui.components.PersonaCard
 import com.example.personabgm.ui.components.PersonaHeading
 import com.example.personabgm.ui.components.StatusBadge
 import com.example.personabgm.ui.components.TagChip
+import com.example.personabgm.ui.components.headingSemantics
 import com.example.personabgm.ui.haptics.LocalHaptics
 import com.example.personabgm.ui.theme.PersonaStyles
 
@@ -152,7 +153,7 @@ private fun LibraryList(
                     text = style.displayName,
                     style = MaterialTheme.typography.titleLarge,
                     color = colors.onBackground,
-                    modifier = Modifier.padding(top = 12.dp),
+                    modifier = Modifier.headingSemantics().padding(top = 12.dp),
                 )
             }
             items(items = tracks, key = { it.id }) { track ->

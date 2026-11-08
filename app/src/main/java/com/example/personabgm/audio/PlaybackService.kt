@@ -20,6 +20,7 @@ import androidx.media3.session.MediaSessionService
 import com.example.personabgm.MainActivity
 import com.example.personabgm.R
 import com.example.personabgm.context.ContextEngine
+import com.example.personabgm.context.DebugOverrides
 import com.example.personabgm.data.local.datastore.SettingsRepository
 import com.example.personabgm.data.local.db.ZoneDao
 import com.example.personabgm.data.local.db.ZoneStateDao
@@ -56,6 +57,7 @@ class PlaybackService : MediaSessionService() {
     @Inject lateinit var zoneStateDao: ZoneStateDao
     @Inject lateinit var weatherRepository: WeatherRepository
     @Inject lateinit var locationProvider: LocationProvider
+    @Inject lateinit var debugOverrides: DebugOverrides
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var engine: CrossfadeEngine? = null
@@ -79,6 +81,7 @@ class PlaybackService : MediaSessionService() {
             zoneStateDao = zoneStateDao,
             weatherRepository = weatherRepository,
             locationProvider = locationProvider,
+            debugOverrides = debugOverrides,
             timeChanges = systemTimeChanges(),
         )
 

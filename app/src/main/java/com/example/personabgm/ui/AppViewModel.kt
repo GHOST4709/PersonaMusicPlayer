@@ -35,9 +35,11 @@ class AppViewModel @Inject constructor(
     fun setTheme(theme: GameTheme) = launchSetting { this.setTheme(theme) }
     fun setHapticsEnabled(enabled: Boolean) = launchSetting { this.setHapticsEnabled(enabled) }
     fun setReduceMotion(enabled: Boolean) = launchSetting { this.setReduceMotion(enabled) }
+    fun setOnboardingCompleted(done: Boolean) = launchSetting { this.setOnboardingCompleted(done) }
     fun setGlobalVolume(volume: Float) = launchSetting { this.setGlobalVolume(volume) }
     fun setCrossfadeDurationMs(ms: Int) = launchSetting { this.setCrossfadeDurationMs(ms) }
     fun setCrossfadeCurve(curve: CrossfadeCurve) = launchSetting { this.setCrossfadeCurve(curve) }
+    fun setFastZoneDetection(enabled: Boolean) = launchSetting { this.setFastZoneDetection(enabled) }
 
     fun setPrecacheWifiOnly(enabled: Boolean) {
         viewModelScope.launch {

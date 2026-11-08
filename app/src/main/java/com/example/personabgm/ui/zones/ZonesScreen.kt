@@ -1,11 +1,5 @@
 package com.example.personabgm.ui.zones
 
-import android.Manifest as AndroidManifest
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,6 +13,8 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
@@ -31,11 +27,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.example.personabgm.BuildConfig
+import com.example.personabgm.domain.model.LatLng
 import com.example.personabgm.domain.model.Manifest
 import com.example.personabgm.domain.model.Zone
 import com.example.personabgm.domain.model.ZoneRules
@@ -46,13 +43,16 @@ import com.example.personabgm.ui.components.PersonaHeading
 import com.example.personabgm.ui.components.PersonaSliderRow
 import com.example.personabgm.ui.components.PersonaSwitchRow
 import com.example.personabgm.ui.components.StatusBadge
+import com.example.personabgm.ui.haptics.LocalHaptics
+import com.example.personabgm.ui.permissions.PermissionActions
+import com.example.personabgm.ui.permissions.rememberPermissionActions
 import com.example.personabgm.ui.theme.PersonaStyles
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 /**
- * Zone management (spec 3.3). The map-based editor arrives in a later build; this screen is enough to
- * create a zone where you stand, give it music, and watch it switch on and off.
+ * Zone management with a map (spec 3.1 to 3.3). The map sits above a scrolling list so that panning the map
+ * never fights list scrolling. Press and hold the map to drop a zone; tap a circle or a card to select one.
  */
 @Composable
 fun ZonesScreen(
@@ -62,10 +62,16 @@ fun ZonesScreen(
     status: GeofenceStatus,
     message: String?,
     busy: Boolean,
+    selectedId: String?,
+    deviceLocation: LatLng?,
     onAccessChanged: () -> Unit,
+    onLoadDeviceLocation: () -> Unit,
+    onSelect: (String?) -> Unit,
     onAddZone: () -> Unit,
+    onDropPin: (lat: Double, lng: Double) -> Unit,
     onRadiusChange: (String, Float) -> Unit,
     onAssignTrack: (String, String?) -> Unit,
+    onRename: (String, String) -> Unit,
     onEnabledChange: (String, Boolean) -> Unit,
     onDelete: (String) -> Unit,
     onRetryGeofences: () -> Unit,
@@ -74,13 +80,12 @@ fun ZonesScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
-    val context = LocalContext.current
+    val haptics = LocalHaptics.current
+    val actions = rememberPermissionActions(onResult = onAccessChanged)
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        onAccessChanged()
-    }
     // The person may come back from system settings having changed the permission.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { onAccessChanged() }
+    LaunchedEffect(access.fine) { if (access.fine) onLoadDeviceLocation() }
     LaunchedEffect(message) {
         if (message != null) {
             delay(MESSAGE_VISIBLE_MS)
@@ -89,79 +94,86 @@ fun ZonesScreen(
     }
 
     var choosingMusicFor by remember { mutableStateOf<Zone?>(null) }
+    var renaming by remember { mutableStateOf<Zone?>(null) }
     var confirmingDelete by remember { mutableStateOf<Zone?>(null) }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item { PersonaHeading(text = "Zones") }
-
-        item {
-            Text(
-                text = "A zone plays its own music while you are inside it. Stand where you want one and add it here.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.onBackground,
-            )
-        }
-
-        item {
-            LocationAccessCard(
-                access = access,
-                onAllowLocation = {
-                    permissionLauncher.launch(
-                        arrayOf(AndroidManifest.permission.ACCESS_FINE_LOCATION, AndroidManifest.permission.ACCESS_COARSE_LOCATION),
-                    )
-                },
-                onOpenSettings = {
-                    context.startActivity(
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
-                    )
-                },
-            )
-        }
-
-        item { GeofenceStatusLine(status = status, zoneCount = rows.size, onRetry = onRetryGeofences) }
-
-        item {
-            PersonaButton(
-                text = if (busy) "Finding you..." else "Add zone here",
-                onClick = onAddZone,
-                enabled = access.fine && !busy,
-                emphasized = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-
-        if (message != null) {
-            item {
-                Text(text = message, style = MaterialTheme.typography.bodyMedium, color = colors.secondary)
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            PersonaHeading(text = "Zones")
+            if (BuildConfig.HAS_MAPS_API_KEY) {
+                ZoneMap(
+                    rows = rows,
+                    selectedId = selectedId,
+                    deviceLocation = deviceLocation,
+                    myLocationEnabled = access.fine,
+                    onSelect = { onSelect(it) },
+                    onDropPin = { lat, lng ->
+                        haptics.emphasize()
+                        onDropPin(lat, lng)
+                    },
+                )
+                Text(
+                    text = "Press and hold the map to drop a zone there.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onBackground,
+                )
+            } else {
+                MapKeyMissingCard()
             }
         }
 
-        if (rows.isEmpty()) {
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item { LocationAccessCard(access = access, actions = actions) }
+
+            item { GeofenceStatusLine(status = status, zoneCount = rows.size, onRetry = onRetryGeofences) }
+
             item {
-                Text(
-                    text = "No zones yet.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.onSurfaceVariant,
+                PersonaButton(
+                    text = if (busy) "Finding you..." else "Add zone here",
+                    onClick = onAddZone,
+                    enabled = access.fine && !busy,
+                    emphasized = true,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
-        }
 
-        items(items = rows, key = { it.zone.id }) { row ->
-            ZoneCard(
-                row = row,
-                musicLabel = musicLabel(row.zone, manifest),
-                onRadiusChange = { onRadiusChange(row.zone.id, it) },
-                onChangeMusic = { choosingMusicFor = row.zone },
-                onEnabledChange = { onEnabledChange(row.zone.id, it) },
-                onDelete = { confirmingDelete = row.zone },
-            )
-        }
+            if (message != null) {
+                item { Text(text = message, style = MaterialTheme.typography.bodyMedium, color = colors.secondary) }
+            }
 
-        item { PersonaButton(text = "Back", onClick = onBack, modifier = Modifier.fillMaxWidth()) }
+            if (rows.isEmpty()) {
+                item {
+                    Text(
+                        text = "No zones yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
+            }
+
+            items(items = rows, key = { it.zone.id }) { row ->
+                ZoneCard(
+                    row = row,
+                    selected = row.zone.id == selectedId,
+                    musicLabel = musicLabel(row.zone, manifest),
+                    onSelect = { onSelect(row.zone.id) },
+                    onRadiusChange = { onRadiusChange(row.zone.id, it) },
+                    onChangeMusic = { choosingMusicFor = row.zone },
+                    onRename = { renaming = row.zone },
+                    onEnabledChange = { onEnabledChange(row.zone.id, it) },
+                    onDelete = { confirmingDelete = row.zone },
+                )
+            }
+
+            item { PersonaButton(text = "Back", onClick = onBack, modifier = Modifier.fillMaxWidth()) }
+        }
     }
 
     choosingMusicFor?.let { zone ->
@@ -173,6 +185,17 @@ fun ZonesScreen(
                 choosingMusicFor = null
             },
             onDismiss = { choosingMusicFor = null },
+        )
+    }
+
+    renaming?.let { zone ->
+        RenameDialog(
+            currentName = zone.name,
+            onConfirm = { name ->
+                onRename(zone.id, name)
+                renaming = null
+            },
+            onDismiss = { renaming = null },
         )
     }
 
@@ -205,12 +228,24 @@ private fun musicLabel(zone: Zone, manifest: Manifest?): String {
     return manifest?.trackById(assignedId)?.title ?: "your theme's default (the chosen track is no longer listed)"
 }
 
+/** Shown instead of the map when the build has no Google Maps API key. Everything else still works. */
 @Composable
-private fun LocationAccessCard(
-    access: LocationAccess,
-    onAllowLocation: () -> Unit,
-    onOpenSettings: () -> Unit,
-) {
+private fun MapKeyMissingCard() {
+    val colors = MaterialTheme.colorScheme
+    PersonaCard(modifier = Modifier.fillMaxWidth()) {
+        Text("The map isn't set up", style = MaterialTheme.typography.titleMedium, color = colors.onSurface)
+        Text(
+            text = "Add MAPS_API_KEY=your-key to local.properties and rebuild to see zones on a map. " +
+                "You can still add and manage zones with the buttons below.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun LocationAccessCard(access: LocationAccess, actions: PermissionActions) {
     val colors = MaterialTheme.colorScheme
     PersonaCard(modifier = Modifier.fillMaxWidth()) {
         when {
@@ -222,19 +257,19 @@ private fun LocationAccessCard(
                     color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
                 )
-                PersonaButton("Allow location", onAllowLocation, modifier = Modifier.fillMaxWidth())
+                PersonaButton("Allow location", actions::requestLocation, modifier = Modifier.fillMaxWidth())
             }
 
             !access.background -> {
                 Text("One more step", style = MaterialTheme.typography.titleMedium, color = colors.onSurface)
                 Text(
-                    text = "To change the music while the app is closed, open settings, choose Location, " +
-                        "and pick \"Allow all the time\". Until then zones only work while the app is open.",
+                    text = "To change the music while the app is closed, choose \"Allow all the time\" for location. " +
+                        "Until then zones only work while the app is open.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
                 )
-                PersonaButton("Open settings", onOpenSettings, modifier = Modifier.fillMaxWidth())
+                PersonaButton("Open location settings", actions::requestBackgroundLocation, modifier = Modifier.fillMaxWidth())
             }
 
             else -> {
@@ -255,7 +290,11 @@ private fun GeofenceStatusLine(status: GeofenceStatus, zoneCount: Int, onRetry: 
     when (status) {
         GeofenceStatus.Idle, GeofenceStatus.MissingPermission -> Unit
         is GeofenceStatus.Registered -> Text(
-            text = if (zoneCount == 0) "Add your first zone below." else "Watching ${status.count} active zone${if (status.count == 1) "" else "s"}.",
+            text = if (zoneCount == 0) {
+                "Add your first zone below, or press and hold the map."
+            } else {
+                "Watching ${status.count} active zone${if (status.count == 1) "" else "s"}."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = colors.onBackground,
         )
@@ -274,16 +313,19 @@ private fun GeofenceStatusLine(status: GeofenceStatus, zoneCount: Int, onRetry: 
 @Composable
 private fun ZoneCard(
     row: ZoneRow,
+    selected: Boolean,
     musicLabel: String,
+    onSelect: () -> Unit,
     onRadiusChange: (Float) -> Unit,
     onChangeMusic: () -> Unit,
+    onRename: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val zone = row.zone
 
-    PersonaCard(modifier = Modifier.fillMaxWidth()) {
+    PersonaCard(modifier = Modifier.fillMaxWidth(), selected = selected, onClick = onSelect) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 text = zone.name,
@@ -313,11 +355,49 @@ private fun ZoneCard(
             checked = zone.enabled,
             onCheckedChange = onEnabledChange,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
-            PersonaButton("Change music", onChangeMusic, modifier = Modifier.weight(1f))
-            PersonaButton("Delete", onDelete, modifier = Modifier.weight(1f))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                PersonaButton("Change music", onChangeMusic, modifier = Modifier.weight(1f))
+                PersonaButton("Rename", onRename, modifier = Modifier.weight(1f))
+            }
+            PersonaButton("Delete", onDelete, modifier = Modifier.fillMaxWidth())
         }
     }
+}
+
+@Composable
+private fun RenameDialog(currentName: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    var text by remember { mutableStateOf(currentName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename zone") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it.take(MAX_NAME_LENGTH) },
+                singleLine = true,
+                label = { Text("Zone name") },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = colors.secondary,
+                    focusedLabelColor = colors.secondary,
+                    cursorColor = colors.secondary,
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(text) },
+                enabled = text.isNotBlank(),
+                colors = ButtonDefaults.textButtonColors(contentColor = colors.secondary),
+            ) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, colors = ButtonDefaults.textButtonColors(contentColor = colors.secondary)) {
+                Text("Cancel")
+            }
+        },
+    )
 }
 
 @Composable
@@ -385,3 +465,4 @@ private fun PickerRow(title: String, subtitle: String, selected: Boolean, onClic
 }
 
 private const val MESSAGE_VISIBLE_MS = 4_000L
+private const val MAX_NAME_LENGTH = 40

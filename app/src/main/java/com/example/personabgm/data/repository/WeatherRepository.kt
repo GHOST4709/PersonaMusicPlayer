@@ -30,10 +30,17 @@ class WeatherRepository @Inject constructor(
     private var lastAttemptMs = 0L
 
     /** Returns true if a new reading was stored. */
-    suspend fun refreshIfNeeded(location: LatLng, nowMs: Long = System.currentTimeMillis()): Boolean {
-        if (!WeatherPolicy.shouldRefresh(_snapshot.value, location, nowMs)) return false
-        // After a failure, do not retry more than once a minute (zone changes and the timer can both ask).
-        if (nowMs - lastAttemptMs in 0 until MIN_RETRY_GAP_MS) return false
+    suspend fun refreshIfNeeded(
+        location: LatLng,
+        nowMs: Long = System.currentTimeMillis(),
+        /** Debug panel: skip the cadence and retry-gap rules. */
+        force: Boolean = false,
+    ): Boolean {
+        if (!force) {
+            if (!WeatherPolicy.shouldRefresh(_snapshot.value, location, nowMs)) return false
+            // After a failure, do not retry more than once a minute (zone changes and the timer can both ask).
+            if (nowMs - lastAttemptMs in 0 until MIN_RETRY_GAP_MS) return false
+        }
         lastAttemptMs = nowMs
 
         // Only rounded coordinates (about 1 km) leave the device.

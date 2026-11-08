@@ -7,12 +7,14 @@ import androidx.compose.material3.Typography
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.personabgm.R
 import com.example.personabgm.domain.model.GameTheme
 
 @Immutable
@@ -37,6 +39,16 @@ data class PersonaStyle(
 
 object PersonaStyles {
 
+    // Fonts are bundled (SIL Open Font License; see assets/licenses). Only headings, titles, and labels use them;
+    // body text stays on the system font so long copy stays easy to read at any font size.
+    private val rajdhani = FontFamily(
+        Font(R.font.rajdhani_medium, FontWeight.Medium),
+        Font(R.font.rajdhani_semibold, FontWeight.SemiBold),
+        Font(R.font.rajdhani_bold, FontWeight.Bold),
+    )
+    private val lilitaOne = FontFamily(Font(R.font.lilita_one_regular, FontWeight.Normal))
+    private val anton = FontFamily(Font(R.font.anton_regular, FontWeight.Normal))
+
     // Persona 3 Reload: sleek liquid cutouts. Asymmetric corners suggest a water-cut panel.
     private val persona3 = PersonaStyle(
         theme = GameTheme.PERSONA_3_RELOAD,
@@ -45,8 +57,9 @@ object PersonaStyles {
         loadingMessage = "Connecting to Metaverse...",
         palette = PersonaPalettes.Persona3Reload,
         typography = personaTypography(
-            family = FontFamily.SansSerif,
-            headingWeight = FontWeight.Light,
+            headingFamily = rajdhani,
+            headingWeight = FontWeight.SemiBold,
+            emphasisWeight = FontWeight.Bold,
             headingStyle = FontStyle.Normal,
             headingSpacing = 1.sp,
             bodySpacing = 0.3.sp,
@@ -58,7 +71,8 @@ object PersonaStyles {
         ),
     )
 
-    // Persona 4 Revival: pop-art badges, CRT lines, halftone dots.
+    // Persona 4 Revival: pop-art badges, CRT lines, halftone dots. Lilita One has a single heavy weight, so every
+    // heading weight is Normal (asking for Bold would make Compose fake a second, smeared bold).
     private val persona4 = PersonaStyle(
         theme = GameTheme.PERSONA_4_REVIVAL,
         displayName = "Persona 4 Revival",
@@ -66,10 +80,11 @@ object PersonaStyles {
         loadingMessage = "Tuning TV...",
         palette = PersonaPalettes.Persona4Revival,
         typography = personaTypography(
-            family = FontFamily.SansSerif,
-            headingWeight = FontWeight.ExtraBold,
+            headingFamily = lilitaOne,
+            headingWeight = FontWeight.Normal,
+            emphasisWeight = FontWeight.Normal,
             headingStyle = FontStyle.Normal,
-            headingSpacing = (-0.5).sp,
+            headingSpacing = 0.sp,
             bodySpacing = 0.sp,
         ),
         shapes = PersonaShapes(
@@ -79,7 +94,8 @@ object PersonaStyles {
         ),
     )
 
-    // Persona 5 Royal: slanted diagonal type, comic cutouts.
+    // Persona 5 Royal: slanted diagonal type, comic cutouts. Anton is condensed and heavy; the slant is the
+    // standard synthetic italic.
     private val persona5 = PersonaStyle(
         theme = GameTheme.PERSONA_5_ROYAL,
         displayName = "Persona 5 Royal",
@@ -87,10 +103,11 @@ object PersonaStyles {
         loadingMessage = "Connecting to Metaverse...",
         palette = PersonaPalettes.Persona5Royal,
         typography = personaTypography(
-            family = FontFamily.SansSerif,
-            headingWeight = FontWeight.Black,
+            headingFamily = anton,
+            headingWeight = FontWeight.Normal,
+            emphasisWeight = FontWeight.Normal,
             headingStyle = FontStyle.Italic,
-            headingSpacing = 0.sp,
+            headingSpacing = 0.5.sp,
             bodySpacing = 0.2.sp,
         ),
         shapes = PersonaShapes(
@@ -110,12 +127,13 @@ object PersonaStyles {
 }
 
 /**
- * Builds a Typography from system fonts. Bundling licensed-for-app fonts (for example OFL
- * families) is a Phase 6 polish item; the family is the single place to change.
+ * Builds a Typography whose display, headline, title, and label styles use [headingFamily] and whose body
+ * styles keep the system font.
  */
 private fun personaTypography(
-    family: FontFamily,
+    headingFamily: FontFamily,
     headingWeight: FontWeight,
+    emphasisWeight: FontWeight,
     headingStyle: FontStyle,
     headingSpacing: TextUnit,
     bodySpacing: TextUnit,
@@ -123,13 +141,19 @@ private fun personaTypography(
     val base = Typography()
 
     fun TextStyle.heading() = copy(
-        fontFamily = family,
+        fontFamily = headingFamily,
         fontWeight = headingWeight,
         fontStyle = headingStyle,
         letterSpacing = headingSpacing,
     )
 
-    fun TextStyle.body() = copy(fontFamily = family, letterSpacing = bodySpacing)
+    fun TextStyle.emphasis() = copy(
+        fontFamily = headingFamily,
+        fontWeight = emphasisWeight,
+        letterSpacing = bodySpacing,
+    )
+
+    fun TextStyle.body() = copy(fontFamily = FontFamily.SansSerif, letterSpacing = bodySpacing)
 
     return base.copy(
         displaySmall = base.displaySmall.heading(),
@@ -137,18 +161,11 @@ private fun personaTypography(
         headlineMedium = base.headlineMedium.heading(),
         headlineSmall = base.headlineSmall.heading(),
         titleLarge = base.titleLarge.heading(),
-        titleMedium = base.titleMedium.copy(
-            fontFamily = family,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = bodySpacing,
-        ),
+        titleMedium = base.titleMedium.emphasis(),
         bodyLarge = base.bodyLarge.body(),
         bodyMedium = base.bodyMedium.body(),
         bodySmall = base.bodySmall.body(),
-        labelLarge = base.labelLarge.copy(
-            fontFamily = family,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = bodySpacing,
-        ),
+        labelLarge = base.labelLarge.emphasis(),
+        labelMedium = base.labelMedium.emphasis(),
     )
 }

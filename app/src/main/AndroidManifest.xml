@@ -25,7 +25,7 @@
     <!--
       Permissions are declared up front (spec section 6). Components are declared in the phase that
       implements them: PlaybackService (Phase 3), GeofenceReceiver and BootReceiver (Phase 4) are below;
-      the Maps key arrives in Phase 5.
+      the Maps key is declared in the application block.
     -->
 
     <application
@@ -37,6 +37,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.PersonaBgm"
         android:usesCleartextTraffic="false">
+
+        <!-- Google Maps key, injected from local.properties (MAPS_API_KEY). Empty means "no map". -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}" />
 
         <activity
             android:name=".MainActivity"

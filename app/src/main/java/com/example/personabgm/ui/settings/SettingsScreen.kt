@@ -1,7 +1,11 @@
 package com.example.personabgm.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import android.os.Build
+import com.example.personabgm.BuildConfig
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +31,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.personabgm.audio.CacheSnapshot
+import com.example.personabgm.domain.permissions.ApiLevel
+import com.example.personabgm.domain.permissions.OemTip
+import com.example.personabgm.domain.permissions.PermissionSnapshot
+import com.example.personabgm.ui.onboarding.OemTipBlock
+import com.example.personabgm.ui.permissions.PermissionActions
 import com.example.personabgm.audio.MediaCache
 import com.example.personabgm.domain.model.AppSettings
 import com.example.personabgm.domain.model.CrossfadeCurve
@@ -35,6 +44,7 @@ import com.example.personabgm.ui.components.PersonaCard
 import com.example.personabgm.ui.components.PersonaHeading
 import com.example.personabgm.ui.components.PersonaSliderRow
 import com.example.personabgm.ui.components.PersonaSwitchRow
+import com.example.personabgm.ui.components.headingSemantics
 import com.example.personabgm.ui.formatBytes
 import com.example.personabgm.ui.haptics.LocalHaptics
 import java.util.Locale
@@ -44,11 +54,17 @@ import kotlin.math.roundToInt
 fun SettingsScreen(
     settings: AppSettings,
     cache: CacheSnapshot,
+    snapshot: PermissionSnapshot,
+    oemTip: OemTip?,
+    actions: PermissionActions,
+    onRunSetup: () -> Unit,
     onOpened: () -> Unit,
     onVolumeChange: (Float) -> Unit,
     onCrossfadeDurationChange: (Int) -> Unit,
     onLinearCurveChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit,
+    onFastZoneDetectionChange: (Boolean) -> Unit,
+    onOpenDebug: (() -> Unit)?,
     onClearCache: () -> Unit,
     onHapticsChange: (Boolean) -> Unit,
     onReduceMotionChange: (Boolean) -> Unit,
@@ -121,6 +137,60 @@ fun SettingsScreen(
             }
         }
 
+        item { SectionTitle("Reliability") }
+        item {
+            PersonaCard(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Background activity: ${if (snapshot.batteryExempt) "Allowed" else "Restricted"}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colors.onSurface,
+                )
+                Text(
+                    text = "Zones need the app to keep running with the screen off. Battery savers on some phones stop that.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                )
+                if (!snapshot.batteryExempt) {
+                    PersonaButton("Allow background activity", actions::requestBatteryExemption, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                }
+                PersonaButton("Open battery settings", actions::openBatterySettings, modifier = Modifier.fillMaxWidth())
+
+                if (Build.VERSION.SDK_INT >= ApiLevel.R) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = colors.outline)
+                    Text(
+                        text = "Android removes permissions from apps you don't open for a while. Turn that off for this app so zones keep working.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
+                    PersonaButton("Keep permissions", actions::openAutoRevokeSettings, modifier = Modifier.fillMaxWidth())
+                }
+
+                if (oemTip != null) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = colors.outline)
+                    OemTipBlock(oemTip, actions)
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = colors.outline)
+                PersonaButton("Run setup again", onRunSetup, modifier = Modifier.fillMaxWidth())
+            }
+        }
+
+        item { SectionTitle("Zones") }
+        item {
+            PersonaCard(modifier = Modifier.fillMaxWidth()) {
+                PersonaSwitchRow(
+                    title = "Faster zone detection",
+                    description = "While the app is open, uses your location to notice arriving and leaving within " +
+                        "seconds. Zones still work in the background either way.",
+                    checked = settings.fastZoneDetection,
+                    onCheckedChange = onFastZoneDetectionChange,
+                )
+            }
+        }
+
         item { SectionTitle("Interface") }
         item {
             PersonaCard(modifier = Modifier.fillMaxWidth()) {
@@ -141,6 +211,28 @@ fun SettingsScreen(
             }
         }
 
+        item { SectionTitle("About") }
+        item {
+            PersonaCard(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Persona BGM ${BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colors.onSurface,
+                )
+                Text(
+                    text = "Headings use the Rajdhani, Lilita One, and Anton typefaces under the SIL Open Font " +
+                        "License 1.1. The license texts are in the app's assets/licenses folder.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                if (onOpenDebug != null) {
+                    Spacer(Modifier.height(12.dp))
+                    PersonaButton("Debug panel", onOpenDebug, modifier = Modifier.fillMaxWidth())
+                }
+            }
+        }
+
         item {
             PersonaButton(
                 text = "Back",
@@ -157,6 +249,6 @@ private fun SectionTitle(text: String) {
         text = text,
         style = MaterialTheme.typography.titleLarge,
         color = MaterialTheme.colorScheme.onBackground,
-        modifier = Modifier.padding(top = 8.dp),
+        modifier = Modifier.headingSemantics().padding(top = 8.dp),
     )
 }
