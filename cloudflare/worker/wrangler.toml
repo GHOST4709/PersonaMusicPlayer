@@ -1,4 +1,4 @@
-name = "persona-music-private"
+name = "persona-music-api"
 main = "src/index.js"
 compatibility_date = "2026-11-07"
 

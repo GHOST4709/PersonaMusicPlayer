@@ -1,0 +1,18 @@
+
+{
+  "version": 2,
+  "theme_defaults": {
+    "PERSONA_3_RELOAD": "p3_test_track"
+  },
+  "tracks": [
+    {
+      "id": "p3_test_track",
+      "game_theme": "PERSONA_3_RELOAD",
+      "title": "It's Going Down Now",
+      "time_of_day": "ALL",
+      "weather": "ALL",
+      "size_bytes": 3000679,
+      "stream_url": "https://persona-music-api.abhishek-sharma-988859.workers.dev/v1/audio/test/first-track.mp3"
+    }
+  ]
+}
