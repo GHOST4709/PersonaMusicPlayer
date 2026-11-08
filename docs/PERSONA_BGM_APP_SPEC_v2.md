@@ -273,7 +273,7 @@ Procedure for `crossfadeTo(track)`:
 
 ### 4.4 Offline Caching & Pre-Caching
 
-- **Offline Caching**: Wrap ExoPlayer `DataSource` with Media3 `SimpleCache` (500 MB max disk limit) to eliminate repeated network downloads and ensure 0 latency on geofence triggers.
+- **Offline Caching**: Wrap ExoPlayer `DataSource` with Media3 `SimpleCache` (configurable 1 GiB default LRU (256 MiB–2 GiB)) to eliminate repeated network downloads and ensure 0 latency on geofence triggers.
 
 > **Changed from v1:** `SimpleCache` only stores bytes that have **already been played or downloaded**, so a cache alone cannot give "0 latency" on the first trigger. v2 adds explicit pre-caching.
 
@@ -765,3 +765,15 @@ Use Room migrations from day one (export schemas); avoid destructive fallback in
 ---
 
 *End of specification v2.*
+
+## Personal deployment addendum (single-user private R2)
+
+For the personal deployment, this addendum supersedes the generic public/static-host examples. PersonaMusicPlayer is primarily a **single-user, local-first Android app**. GPS, geofences, weather/time resolution, preferences/zones, music selection, playback and cache policy remain on the phone.
+
+The music library and v2 manifest live in a **private Cloudflare R2 bucket**. Android accesses them through a Cloudflare Worker that verifies a single-user bearer token, then streams the original R2 bytes with HTTP Range support. The R2 bucket is not public; R2 access keys and the bearer token are never embedded in the APK. The token is encrypted at rest using Android Keystore. There is no multi-account/login system or VPS requirement.
+
+Audio is delivered as stored. Do not force every track to 192 kbps or re-encode files just for streaming. Upload source files in codecs supported by the target Android phone.
+
+The on-device cache uses a configurable persistent LRU budget (1 GiB default; 256 MiB–2 GiB range). Loaded and incoming crossfade tracks are protected; pre-cache prioritizes the selected theme's default and zone-assigned tracks/variants. The cache is a working set, not a permanent mirror of R2.
+
+Worker deployment, object layout, token creation/rotation and setup steps are documented in `cloudflare/worker/README.md`.

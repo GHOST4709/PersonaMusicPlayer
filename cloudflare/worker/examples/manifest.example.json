@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "theme_defaults": { "PERSONA_3_RELOAD": "p3_color_your_night" },
+  "tracks": [
+    {
+      "id": "p3_color_your_night",
+      "game_theme": "PERSONA_3_RELOAD",
+      "title": "Example track",
+      "artist": "Your music library",
+      "time_of_day": "NIGHT",
+      "weather": "CLEAR",
+      "variant_group": "p3_roaming",
+      "stream_url": "https://YOUR-WORKER.workers.dev/v1/audio/p3/color_your_night.m4a",
+      "size_bytes": 12345678
+    }
+  ]
+}

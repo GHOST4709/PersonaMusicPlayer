@@ -1,6 +1,7 @@
 package com.example.personabgm.data.repository
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import com.example.personabgm.BuildConfig
 import com.example.personabgm.data.local.db.ManifestDao
@@ -91,7 +92,8 @@ class ManifestRepository @Inject constructor(
         val body = response.body()
             ?: return RefreshResult.Invalid(listOf(ManifestIssue(IssueSeverity.ERROR, "Empty response body.")))
 
-        val validation = ManifestValidator.validate(body)
+        val allowedHost = Uri.parse(BuildConfig.MUSIC_API_BASE_URL).host
+        val validation = ManifestValidator.validate(body, allowedStreamHost = allowedHost)
         logIssues(validation.issues)
         val manifest = validation.manifest ?: return RefreshResult.Invalid(validation.issues)
 
@@ -121,7 +123,15 @@ class ManifestRepository @Inject constructor(
             val text = withContext(Dispatchers.IO) {
                 context.assets.open(SEED_ASSET).bufferedReader().use { it.readText() }
             }
-            val validation = ManifestValidator.validate(json.decodeFromString(ManifestDto.serializer(), text))
+            val allowedHost = Uri.parse(BuildConfig.MUSIC_API_BASE_URL).host
+            val decoded = json.decodeFromString(ManifestDto.serializer(), text)
+            val workerSeed = decoded.copy(
+                tracks = decoded.tracks.orEmpty().map { track ->
+                    val path = Uri.parse(track.streamUrl.orEmpty()).encodedPath
+                    track.copy(streamUrl = "${BuildConfig.MUSIC_API_BASE_URL}${path}")
+                },
+            )
+            val validation = ManifestValidator.validate(workerSeed, allowedStreamHost = allowedHost)
             logIssues(validation.issues)
             validation.manifest?.let { store(it, etag = null) }
         } catch (e: CancellationException) {

@@ -25,8 +25,8 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.first
 
 /**
- * Downloads each theme's default tracks and every zone-assigned track (with their variants) ahead of time,
- * so the first trigger plays with no wait (spec 4.4). Downloads resume from whatever is already cached.
+ * Downloads the selected theme's default and zone-assigned tracks/variants. Zone tracks are
+ * considered first and the selected theme default last, keeping the roaming default most recent.
  *
  * Uses a Hilt entry point instead of hilt-work to avoid a custom WorkManager configuration.
  */
@@ -42,6 +42,7 @@ class PrecacheWorker(
         fun mediaCache(): MediaCache
         fun cacheStatus(): CacheStatus
         fun zoneDao(): ZoneDao
+        fun settingsRepository(): SettingsRepository
     }
 
     override suspend fun doWork(): Result {
@@ -51,7 +52,8 @@ class PrecacheWorker(
 
         var anyFailed = false
         val assigned = deps.zoneDao().getAssignedTrackIds()
-        for (track in manifest.precacheTracks(assigned)) {
+        val activeTheme = deps.settingsRepository().settings.first().theme
+        for (track in manifest.precacheTracks(assigned, activeTheme)) {
             if (cache.isFullyCached(track)) continue
             try {
                 cache.download(track)

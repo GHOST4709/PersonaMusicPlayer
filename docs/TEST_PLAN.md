@@ -13,7 +13,7 @@ Cover at least: a Pixel or other near-stock phone, a Samsung, and one Xiaomi/Red
 | debug | `./gradlew :app:installDebug` | Everything, including the debug panel and the seed manifest |
 | releaseCheck | `./gradlew :app:installReleaseCheck` | **Minified like release** (debug-signed). Run sections 1 to 9 again on this build; a missing R8 keep rule shows up as a crash in a code path |
 
-Before you start: host a few audio files you own at https URLs and point the manifest at them (see README "You must supply audio").
+Before you start: deploy the private Cloudflare Worker/R2 setup in `cloudflare/worker/README.md`, upload audio files you have rights to use, configure `MUSIC_API_BASE_URL` in `local.properties`, and enter the Worker token in Settings → Private music library.
 
 ## 1. First run and setup
 
@@ -69,7 +69,7 @@ Before you start: host a few audio files you own at https URLs and point the man
 | MF-5 | First launch offline on a **debug** build | Seed tracks appear (placeholder URLs) | |
 | MF-6 | Library > Refresh | Button shows "Refreshing..." then updates; an unchanged manifest costs a 304 (check with a proxy if curious) | |
 | MF-7 | Wait for downloads on Wi-Fi | Tracks gain a **Saved** chip; Settings shows cache size | |
-| MF-8 | Settings > Clear audio cache | Size drops to 0; chips disappear; downloads re-queue | |
+| MF-8 | Clear audio cache while idle, then while a track is playing | Idle: saved spans clear; playback: loaded/incoming tracks remain until released, then are removed | |
 | MF-9 | Turn "Download on Wi-Fi only" off, use mobile data | Downloads start on mobile data | |
 
 ## 5. Playback and audio
@@ -173,3 +173,18 @@ Suggested targets (adjust after measuring): PF-2 under 1% per 8 idle hours; PF-1
 | RB-5 | Cross a zone boundary | Receiver runs, music switches | |
 | RB-6 | Weather: wait for a refresh (watch logcat `WeatherRepository`) | Open-Meteo response decodes | |
 | RB-7 | Check `app/build/outputs/mapping/releaseCheck/mapping.txt` exists | Keep it with each release to decode crash traces | |
+
+## Private Cloudflare delivery and adaptive cache
+
+| ID | Steps | Expected | Result |
+| :-- | :--- | :--- | :-- |
+| CF-1 | Keep R2 public access disabled; request `/v1/manifest` without a token | Worker returns 401 without exposing the manifest | |
+| CF-2 | Enter an invalid token, then refresh Library | Worker returns 401 and app explains how to configure private access | |
+| CF-3 | Enter the valid token and refresh Library | Manifest loads; token persists encrypted on the device | |
+| CF-4 | Put an audio URL on another host in the manifest | App rejects the URL and never sends the bearer token to that host | |
+| CF-5 | Play an uncached track and seek | Worker returns correct 206 / Content-Range responses | |
+| CF-6 | Compare uploaded audio and streamed bytes | Same original object bytes; no transcoding or bitrate conversion | |
+| CF-7 | Change cache limit between 256 MiB and 2 GiB while playing | Cache adjusts; loaded/incoming tracks remain protected | |
+| CF-8 | Change Persona theme | Pre-cache is re-scheduled for the selected theme and zone tracks | |
+| CF-9 | Cache a track, enable airplane mode and replay | Cached track remains playable offline | |
+| CF-10 | Rotate Worker secret | Old token fails; entering new token restores access | |

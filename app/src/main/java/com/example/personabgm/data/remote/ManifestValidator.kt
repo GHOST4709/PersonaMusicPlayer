@@ -40,7 +40,7 @@ data class ValidationResult(
  */
 object ManifestValidator {
 
-    fun validate(dto: ManifestDto): ValidationResult {
+    fun validate(dto: ManifestDto, allowedStreamHost: String? = null): ValidationResult {
         val issues = ArrayList<ManifestIssue>()
 
         val version = dto.version
@@ -52,7 +52,7 @@ object ManifestValidator {
         val seenIds = HashSet<String>()
         val tracks = ArrayList<Track>()
         dto.tracks.orEmpty().forEachIndexed { index, raw ->
-            validateTrack(raw, index, seenIds, issues)?.let { tracks += it }
+            validateTrack(raw, index, seenIds, issues, allowedStreamHost)?.let { tracks += it }
         }
 
         if (tracks.isEmpty()) {
@@ -70,6 +70,7 @@ object ManifestValidator {
         index: Int,
         seenIds: MutableSet<String>,
         issues: MutableList<ManifestIssue>,
+        allowedStreamHost: String?,
     ): Track? {
         val id = raw.id?.trim().orEmpty()
         if (id.isEmpty()) {
@@ -96,6 +97,9 @@ object ManifestValidator {
 
         val url = raw.streamUrl?.trim().orEmpty()
         if (!isValidHttpsUrl(url)) return drop("stream_url is not a plain https URL")
+        if (allowedStreamHost != null && !isValidPrivateWorkerAudioUrl(url, allowedStreamHost)) {
+            return drop("stream_url must use the configured private music Worker /v1/audio endpoint")
+        }
 
         val timeTag = raw.timeOfDay?.trim()
         val time = TrackTime.fromNameOrAll(timeTag)
@@ -183,6 +187,14 @@ object ManifestValidator {
             result[theme] = fallback.id
         }
         return result
+    }
+
+    internal fun isValidPrivateWorkerAudioUrl(url: String, allowedHost: String): Boolean {
+        val uri = try { URI(url) } catch (_: URISyntaxException) { return false }
+        val port = uri.port.takeIf { it >= 0 } ?: 443
+        return uri.scheme.equals("https", true) && uri.host.equals(allowedHost, true) && port == 443 &&
+            uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null &&
+            uri.rawPath?.startsWith("/v1/audio/") == true && uri.rawPath.length > "/v1/audio/".length
     }
 
     /** Plain `https://host/...` only. Rejects markdown links, whitespace, other schemes, and missing hosts. */

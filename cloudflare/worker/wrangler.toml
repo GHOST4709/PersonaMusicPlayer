@@ -1,0 +1,13 @@
+name = "persona-music-private"
+main = "src/index.js"
+compatibility_date = "2026-11-07"
+
+[[r2_buckets]]
+binding = "MUSIC_BUCKET"
+bucket_name = "persona-music"
+
+[observability]
+enabled = true
+
+# Configure as an encrypted Worker secret, never as a variable:
+# npx wrangler secret put PERSONA_ACCESS_TOKEN

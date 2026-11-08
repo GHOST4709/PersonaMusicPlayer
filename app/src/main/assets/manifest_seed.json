@@ -14,7 +14,7 @@
       "time_of_day": "NIGHT",
       "weather": "CLEAR",
       "variant_group": "p3_roaming",
-      "stream_url": "https://cdn.example.com/audio/p3_color_your_night.m4a"
+      "stream_url": "https://persona-music.example.workers.dev/v1/audio/p3/color_your_night.m4a"
     },
     {
       "id": "p4_roaming_clear",
@@ -24,7 +24,7 @@
       "time_of_day": "ALL",
       "weather": "CLEAR",
       "variant_group": "p4_roaming",
-      "stream_url": "https://cdn.example.com/audio/p4_roaming_clear.m4a"
+      "stream_url": "https://persona-music.example.workers.dev/v1/audio/p4/roaming_clear.m4a"
     },
     {
       "id": "p4_heartbeat_rain",
@@ -34,7 +34,7 @@
       "time_of_day": "ALL",
       "weather": "RAIN",
       "variant_group": "p4_roaming",
-      "stream_url": "https://cdn.example.com/audio/p4_heartbeat_rain.m4a"
+      "stream_url": "https://persona-music.example.workers.dev/v1/audio/p4/heartbeat_heartbreak.m4a"
     },
     {
       "id": "p5_tokyo_daylight",
@@ -44,7 +44,7 @@
       "time_of_day": "DAY",
       "weather": "CLEAR",
       "variant_group": "p5_roaming",
-      "stream_url": "https://cdn.example.com/audio/p5_tokyo_daylight.m4a"
+      "stream_url": "https://persona-music.example.workers.dev/v1/audio/p5/tokyo_daylight.m4a"
     }
   ]
 }

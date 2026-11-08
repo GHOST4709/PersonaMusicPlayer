@@ -27,6 +27,7 @@ data class LibraryContent(
     val isRefreshing: Boolean,
     /** True when the latest refresh could not reach the server, so the list may be out of date. */
     val offline: Boolean,
+    val statusMessage: String? = null,
 )
 
 /**
@@ -51,6 +52,7 @@ class ManifestViewModel @Inject constructor(
 
     private val refreshState = MutableStateFlow<RefreshState>(RefreshState.Running)
     private var refreshJob: Job? = null
+    private var refreshRequestedWhileRunning = false
 
     val uiState: StateFlow<UiState<LibraryContent>> =
         combine<Manifest?, RefreshState, UiState<LibraryContent>>(repository.manifest, refreshState) { manifest, state ->
@@ -60,6 +62,7 @@ class ManifestViewModel @Inject constructor(
                         manifest = manifest,
                         isRefreshing = state is RefreshState.Running,
                         offline = state is RefreshState.Failed && state.offline,
+                        statusMessage = (state as? RefreshState.Failed)?.message,
                     ),
                 )
                 state is RefreshState.Failed -> UiState.Error(state.message, retry = this::refresh)
@@ -88,24 +91,30 @@ class ManifestViewModel @Inject constructor(
     }
 
     fun refresh() {
-        if (refreshJob?.isActive == true) return
+        if (refreshJob?.isActive == true) {
+            refreshRequestedWhileRunning = true
+            return
+        }
         refreshState.value = RefreshState.Running
         refreshJob = viewModelScope.launch {
-            refreshState.value = when (val result = repository.refresh()) {
-                is RefreshResult.Updated, RefreshResult.NotModified -> RefreshState.Idle
-                is RefreshResult.NetworkError -> RefreshState.Failed(
-                    message = "Can't reach the music server. Check your connection and try again.",
-                    offline = true,
-                )
-                is RefreshResult.HttpError -> RefreshState.Failed(
-                    message = "The music server returned an error (${result.code}). Try again in a moment.",
-                    offline = false,
-                )
-                is RefreshResult.Invalid -> RefreshState.Failed(
-                    message = "The track list couldn't be read. It may be malformed.",
-                    offline = false,
-                )
-            }
+            do {
+                refreshRequestedWhileRunning = false
+                refreshState.value = when (val result = repository.refresh()) {
+                    is RefreshResult.Updated, RefreshResult.NotModified -> RefreshState.Idle
+                    is RefreshResult.NetworkError -> RefreshState.Failed(
+                        message = "Can't reach the music server. Check your connection and try again.", offline = true,
+                    )
+                    is RefreshResult.HttpError -> RefreshState.Failed(
+                        message = if (result.code == 401 || result.code == 403)
+                            "Private music access is missing or invalid. Open Settings → Private music library and save your access token."
+                        else "The music server returned an error (${result.code}). Try again in a moment.",
+                        offline = false,
+                    )
+                    is RefreshResult.Invalid -> RefreshState.Failed(
+                        message = "The track list couldn't be read. It may be malformed.", offline = false,
+                    )
+                }
+            } while (refreshRequestedWhileRunning)
         }
     }
 }

@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.net.URI
 
 plugins {
     alias(libs.plugins.android.application)
@@ -15,6 +16,16 @@ val localProperties = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 val mapsApiKey: String = localProperties.getProperty("MAPS_API_KEY", "").trim()
+val musicApiBaseUrl: String = localProperties.getProperty(
+    "MUSIC_API_BASE_URL", "https://persona-music.example.workers.dev",
+).trim().trimEnd('/')
+val musicApiUri = runCatching { URI(musicApiBaseUrl) }.getOrNull()
+if (musicApiUri == null || !musicApiUri.scheme.equals("https", true) || musicApiUri.host.isNullOrBlank() ||
+    musicApiUri.rawUserInfo != null || musicApiUri.rawQuery != null || musicApiUri.rawFragment != null ||
+    musicApiUri.rawPath !in listOf("", "/") || musicApiUri.port !in listOf(-1, 443)) {
+    throw GradleException("MUSIC_API_BASE_URL must be an HTTPS origin only, e.g. https://your-worker.workers.dev")
+}
+fun String.asBuildConfigString(): String = "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 android {
     namespace = "com.example.personabgm"
@@ -28,9 +39,9 @@ android {
         versionName = "0.6.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Track manifest location (spec 7.1: configurable per build type). Replace the placeholder
-        // with your own host. Must be https; cleartext traffic is disabled.
-        buildConfigField("String", "MANIFEST_URL", "\"https://cdn.example.com/manifest.json\"")
+        // Authenticated private music Worker in front of the private R2 bucket.
+        buildConfigField("String", "MUSIC_API_BASE_URL", musicApiBaseUrl.asBuildConfigString())
+        buildConfigField("String", "MANIFEST_URL", ("$musicApiBaseUrl/v1/manifest").asBuildConfigString())
 
         // Google Maps key for the zone map. Without one the Zones screen shows a note instead of a blank map.
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey

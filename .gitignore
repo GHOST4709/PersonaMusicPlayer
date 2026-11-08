@@ -12,3 +12,8 @@ app/build/
 *.aab
 # Keep Room schemas under version control:
 !app/schemas/
+
+# Cloudflare Worker local credentials and generated files
+cloudflare/worker/.dev.vars
+cloudflare/worker/.wrangler/
+cloudflare/worker/node_modules/

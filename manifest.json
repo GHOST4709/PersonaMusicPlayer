@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "tracks": [
     {
       "id": "p3_color_your_night",
@@ -8,7 +8,7 @@
       "artist": "Azumi Takahashi, Lotus Juice",
       "time_of_day": "NIGHT",
       "weather": "CLEAR",
-      "stream_url": "https://cdn.example.com/audio/p3_color_your_night.m4a"
+      "stream_url": "https://YOUR-WORKER.workers.dev/v1/audio/p3/color_your_night.m4a"
     },
     {
       "id": "p4_heartbeat_rain",
@@ -17,7 +17,7 @@
       "artist": "Shihoko Hirata",
       "time_of_day": "ALL",
       "weather": "RAIN",
-      "stream_url": "[https://cdn.example.com/audio/p4_heartbeat_rain.m4a](https://cdn.example.com/audio/p4_heartbeat_rain.m4a)"
+      "stream_url": "https://YOUR-WORKER.workers.dev/v1/audio/p4/heartbeat_heartbreak.m4a"
     },
     {
       "id": "p5_tokyo_daylight",
@@ -26,7 +26,12 @@
       "artist": "Lyn Inaizumi",
       "time_of_day": "DAY",
       "weather": "CLEAR",
-      "stream_url": "[https://cdn.example.com/audio/p5_tokyo_daylight.m4a](https://cdn.example.com/audio/p5_tokyo_daylight.m4a)"
+      "stream_url": "https://YOUR-WORKER.workers.dev/v1/audio/p5/tokyo_daylight.m4a"
     }
-  ]
+  ],
+  "theme_defaults": {
+    "PERSONA_3_RELOAD": "p3_color_your_night",
+    "PERSONA_4_REVIVAL": "p4_heartbeat_rain",
+    "PERSONA_5_ROYAL": "p5_tokyo_daylight"
+  }
 }

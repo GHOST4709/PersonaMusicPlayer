@@ -134,12 +134,12 @@ private fun LibraryList(
     ) {
         item { PersonaHeading(text = "Library") }
 
-        if (content.offline) {
+        if (content.statusMessage != null) {
             item {
                 Text(
-                    text = "Offline. Showing your saved track list.",
+                    text = if (content.offline) "Offline. Showing your saved track list. ${content.statusMessage}" else content.statusMessage,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = colors.secondary,
+                    color = if (content.offline) colors.secondary else colors.error,
                 )
             }
         }

@@ -3,6 +3,7 @@ package com.example.personabgm.di
 import com.example.personabgm.BuildConfig
 import com.example.personabgm.data.remote.ManifestApi
 import com.example.personabgm.data.remote.WeatherApi
+import com.example.personabgm.security.MusicAccessTokenStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -31,12 +32,24 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        // Hard cap for the whole call so a stalled host cannot hold the first-launch loading screen.
-        .callTimeout(20, TimeUnit.SECONDS)
-        .build()
+    fun provideOkHttpClient(accessTokenStore: MusicAccessTokenStore): OkHttpClient {
+        val configuredApi = BuildConfig.MUSIC_API_BASE_URL.toHttpUrl()
+        return OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .callTimeout(20, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val request = chain.request()
+                val url = request.url
+                val trusted = url.scheme == "https" && url.host.equals(configuredApi.host, true) &&
+                    url.port == configuredApi.port && url.encodedPath.startsWith("/v1/")
+                val token = if (trusted) accessTokenStore.getToken() else null
+                val authenticated = if (token != null) request.newBuilder()
+                    .header("Authorization", "Bearer $token").build() else request
+                chain.proceed(authenticated)
+            }
+            .build()
+    }
 
     @Provides
     @Singleton

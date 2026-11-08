@@ -129,12 +129,14 @@ class CrossfadeEngine(
             Log.e(TAG, "Playback engine failed during $what", e)
             isCrossfading = false
             desiredTrackId = currentTrack?.id
+            mediaCache.protectPlaybackTracks(setOfNotNull(currentTrack?.id))
             error = "Something went wrong with playback. Try again."
             publish()
         }
     }
 
     fun release() {
+        mediaCache.protectPlaybackTracks(emptySet())
         rampJob?.cancel()
         recoveryJob?.cancel()
         focus.abandon()
@@ -322,6 +324,7 @@ class CrossfadeEngine(
 
     /** Loads a track into the active player with no crossfade (first play, or while paused). */
     private fun loadImmediately(track: Track) {
+        mediaCache.protectPlaybackTracks(setOf(track.id))
         inactivePlayer.stop()
         inactivePlayer.clearMediaItems()
         inactiveGain = 0f
@@ -344,6 +347,7 @@ class CrossfadeEngine(
         val incoming = inactivePlayer
 
         isCrossfading = true
+        mediaCache.protectPlaybackTracks(listOfNotNull(currentTrack?.id, track.id).toSet())
         error = null
         publish()
 
@@ -359,6 +363,7 @@ class CrossfadeEngine(
             incoming.clearMediaItems()
             isCrossfading = false
             desiredTrackId = currentTrack?.id
+            mediaCache.protectPlaybackTracks(setOfNotNull(currentTrack?.id))
             error = "Couldn't load \"${track.title}\". Staying on the current track."
             publish()
             scheduleRetryOnce(track)
@@ -381,6 +386,7 @@ class CrossfadeEngine(
         inactiveGain = 0f
         currentTrack = track
         isCrossfading = false
+        mediaCache.protectPlaybackTracks(setOf(track.id))
         applyVolumes()
         onActivePlayerChanged?.invoke(incoming) // rebind the session once, after the fade (spec 4.1)
         publish()

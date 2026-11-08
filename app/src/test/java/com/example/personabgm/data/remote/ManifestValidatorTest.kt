@@ -112,6 +112,28 @@ class ManifestValidatorTest {
         bad.forEach { assertFalse("should reject: $it", ManifestValidator.isValidHttpsUrl(it)) }
     }
 
+
+    @Test
+    fun privateModeAllowsOnlyConfiguredWorkerAudioPaths() {
+        val allowedHost = "music.example.workers.dev"
+        val good = "https://music.example.workers.dev/v1/audio/p3/night/song.m4a"
+        val rejected = listOf(
+            "https://evil.example/v1/audio/song.m4a",
+            "http://music.example.workers.dev/v1/audio/song.m4a",
+            "https://music.example.workers.dev/v1/manifest",
+            "https://music.example.workers.dev/v1/audio/song.m4a?token=secret",
+            "https://user@music.example.workers.dev/v1/audio/song.m4a",
+            "https://music.example.workers.dev:8443/v1/audio/song.m4a",
+        )
+        assertTrue(ManifestValidator.isValidPrivateWorkerAudioUrl(good, allowedHost))
+        rejected.forEach { assertFalse("should reject $it", ManifestValidator.isValidPrivateWorkerAudioUrl(it, allowedHost)) }
+        val result = ManifestValidator.validate(
+            manifest(listOf(track("good", url = good), track("bad", url = rejected.first()))),
+            allowedStreamHost = allowedHost,
+        )
+        assertEquals(listOf("good"), notNull(result.manifest).tracks.map { it.id })
+    }
+
     // ---- per-track rules ----
 
     @Test

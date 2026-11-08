@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -22,11 +24,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -63,6 +68,11 @@ fun SettingsScreen(
     onCrossfadeDurationChange: (Int) -> Unit,
     onLinearCurveChange: (Boolean) -> Unit,
     onWifiOnlyChange: (Boolean) -> Unit,
+    onAudioCacheLimitChange: (Int) -> Unit,
+    musicAccessConfigured: Boolean,
+    musicAccessError: String?,
+    onSaveMusicAccessToken: (String) -> Unit,
+    onClearMusicAccessToken: () -> Unit,
     onFastZoneDetectionChange: (Boolean) -> Unit,
     onOpenDebug: (() -> Unit)?,
     onClearCache: () -> Unit,
@@ -122,9 +132,24 @@ fun SettingsScreen(
                     onCheckedChange = onWifiOnlyChange,
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = colors.outline)
+                PersonaSliderRow(
+                    title = "Cache budget",
+                    value = settings.audioCacheLimitMb.toFloat(),
+                    range = 256f..2048f,
+                    steps = 6,
+                    format = { if (it >= 1024f) String.format(Locale.US, "%.1f GB", it / 1024f) else "${it.roundToInt()} MB" },
+                    onCommit = { onAudioCacheLimitChange(it.roundToInt()) },
+                )
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = colors.outline)
                 Text(
-                    text = "Saved audio: ${formatBytes(cache.totalBytes)} of ${formatBytes(MediaCache.MAX_BYTES)}",
+                    text = "Saved audio: ${formatBytes(cache.totalBytes)} of ${formatBytes(settings.audioCacheLimitMb.toLong() * MediaCache.BYTES_PER_MB)}",
                     style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                Text(
+                    text = "Clearing saved audio keeps the currently loaded track and any incoming crossfade track until playback releases them.",
+                    style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
@@ -133,6 +158,59 @@ fun SettingsScreen(
                     onClick = onClearCache,
                     emphasized = true,
                     modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+
+        item { SectionTitle("Private music library") }
+        item {
+            var tokenInput by remember { mutableStateOf("") }
+            var tokenValidationError by remember { mutableStateOf<String?>(null) }
+            PersonaCard(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = if (musicAccessConfigured) "Private access token is stored on this device" else "Private access is not configured",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colors.onSurface,
+                )
+                Text(
+                    text = "Paste the 64-character token generated for your Cloudflare Worker. Android Keystore encrypts it at rest; it is not bundled into the APK.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+                )
+                OutlinedTextField(
+                    value = tokenInput,
+                    onValueChange = { tokenInput = it.trim().take(64); tokenValidationError = null },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("64-character access token") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+                )
+                val validToken = tokenInput.trim().matches(Regex("(?i)^[a-f0-9]{64}$"))
+                if (tokenValidationError != null || musicAccessError != null) {
+                    Text(
+                        text = tokenValidationError ?: musicAccessError.orEmpty(),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                PersonaButton(
+                    text = "Save private access token",
+                    onClick = {
+                        if (validToken) { onSaveMusicAccessToken(tokenInput.trim()); tokenInput = "" }
+                        else tokenValidationError = "Enter all 64 hexadecimal characters from your Worker secret."
+                    },
+                    emphasized = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (musicAccessConfigured) {
+                    PersonaButton(text = "Remove stored token", onClick = onClearMusicAccessToken, modifier = Modifier.fillMaxWidth())
+                }
+                Text(
+                    text = "The R2 bucket remains private. Losing this token does not delete audio already cached on this phone.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
                 )
             }
         }

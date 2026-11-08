@@ -34,6 +34,7 @@ class SettingsRepository @Inject constructor(
     suspend fun setCrossfadeCurve(curve: CrossfadeCurve) = update { it[Keys.CROSSFADE_CURVE] = curve.name }
     suspend fun setWeatherOverrideEnabled(enabled: Boolean) = update { it[Keys.WEATHER_OVERRIDE] = enabled }
     suspend fun setPrecacheWifiOnly(enabled: Boolean) = update { it[Keys.PRECACHE_WIFI_ONLY] = enabled }
+    suspend fun setAudioCacheLimitMb(value: Int) = update { it[Keys.AUDIO_CACHE_LIMIT_MB] = value.coerceIn(256, 2048) }
     suspend fun setFastZoneDetection(enabled: Boolean) = update { it[Keys.FAST_ZONE_DETECTION] = enabled }
     suspend fun setHapticsEnabled(enabled: Boolean) = update { it[Keys.HAPTICS] = enabled }
     suspend fun setReduceMotion(enabled: Boolean) = update { it[Keys.REDUCE_MOTION] = enabled }
@@ -61,6 +62,7 @@ class SettingsRepository @Inject constructor(
         val CROSSFADE_CURVE = stringPreferencesKey("crossfade_curve")
         val WEATHER_OVERRIDE = booleanPreferencesKey("weather_override_enabled")
         val PRECACHE_WIFI_ONLY = booleanPreferencesKey("precache_wifi_only")
+        val AUDIO_CACHE_LIMIT_MB = intPreferencesKey("audio_cache_limit_mb")
         val FAST_ZONE_DETECTION = booleanPreferencesKey("fast_zone_detection")
         val HAPTICS = booleanPreferencesKey("haptics_enabled")
         val REDUCE_MOTION = booleanPreferencesKey("reduce_motion")
@@ -78,6 +80,7 @@ class SettingsRepository @Inject constructor(
                 ?: defaults.crossfadeCurve,
             weatherOverrideEnabled = this[Keys.WEATHER_OVERRIDE] ?: defaults.weatherOverrideEnabled,
             precacheWifiOnly = this[Keys.PRECACHE_WIFI_ONLY] ?: defaults.precacheWifiOnly,
+            audioCacheLimitMb = (this[Keys.AUDIO_CACHE_LIMIT_MB] ?: defaults.audioCacheLimitMb).coerceIn(256, 2048),
             fastZoneDetection = this[Keys.FAST_ZONE_DETECTION] ?: defaults.fastZoneDetection,
             hapticsEnabled = this[Keys.HAPTICS] ?: defaults.hapticsEnabled,
             reduceMotion = this[Keys.REDUCE_MOTION] ?: defaults.reduceMotion,

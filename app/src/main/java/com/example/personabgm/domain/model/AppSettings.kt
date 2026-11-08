@@ -8,6 +8,8 @@ data class AppSettings(
     val crossfadeCurve: CrossfadeCurve = CrossfadeCurve.EQUAL_POWER,
     val weatherOverrideEnabled: Boolean = true,
     val precacheWifiOnly: Boolean = true,
+    /** Local audio working-set budget in MiB (256–2048). */
+    val audioCacheLimitMb: Int = 1024,
     /** Use the device's own location while the app is open to notice arriving/leaving sooner (spec 5.2). */
     val fastZoneDetection: Boolean = true,
     val hapticsEnabled: Boolean = true,

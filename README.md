@@ -26,8 +26,7 @@ Persona 3 Reload / Persona 4 Revival / Persona 5 Royal look. Full spec: `docs/PE
 
 ## Phase 2: the track manifest
 
-- **Where it comes from:** `BuildConfig.MANIFEST_URL` in `app/build.gradle.kts` (placeholder
-  `https://cdn.example.com/manifest.json`). Point it at your own https host. Schema: spec 7.1.
+- **Where it comes from:** `BuildConfig.MANIFEST_URL`, derived from `MUSIC_API_BASE_URL` in the untracked root `local.properties`. The manifest is fetched from the authenticated private Cloudflare Worker at `/v1/manifest`; see [`cloudflare/worker/README.md`](cloudflare/worker/README.md).
 - **Fetch:** Retrofit with the cached ETag sent as `If-None-Match`; a 304 keeps the cache.
 - **Validation:** `ManifestValidator` drops bad tracks one by one (non-https or markdown-wrapped
   URLs, duplicate ids, unknown theme, missing title), turns unknown time/weather tags into `ALL`,
@@ -53,7 +52,7 @@ Next/Previous and "Resume auto" work from the app, the notification, and Bluetoo
 | Session facade | `audio/CrossfadePlayer.kt` | `ForwardingPlayer` routing play/pause/next/previous to the engine |
 | Audio focus (single owner) | `audio/AudioFocusController.kt` + `FocusPolicy.kt` | Both players run with built-in focus OFF. Duck to 20%, transient pause/resume, permanent loss = stay paused |
 | Fade math, Next/Previous rules | `audio/FadeMath.kt`, `OverrideNavigator.kt` | Pure Kotlin, unit-tested |
-| Cache | `audio/MediaCache.kt` | One 500 MB LRU `SimpleCache` in `filesDir`, keyed by track id |
+| Cache | `audio/MediaCache.kt` + `ConfigurableLruCacheEvictor.kt` | Persistent configurable LRU (1 GiB default; 256 MiB–2 GiB setting), keyed by track id; loaded and incoming tracks are protected |
 | Pre-cache | `audio/PrecacheWorker.kt` | WorkManager, Wi-Fi-only by default, resumes partial downloads, gives up after 5 attempts |
 | Service | `audio/PlaybackService.kt` | `mediaPlayback` foreground service; keeps playing when the app is swiped away, stops if idle |
 | UI bridge | `audio/PlaybackRemote.kt` | Command queue + state flow (UI and service share a process, so no bound controller) |
@@ -61,17 +60,15 @@ Next/Previous and "Resume auto" work from the app, the notification, and Bluetoo
 In Phase 3, AUTO means "the active theme's default track". The weather, time-of-day, and zone logic that
 replaces `CrossfadeEngine.autoTarget()` is Phase 4.
 
-### You must supply audio to hear anything
+### Private music hosting (Cloudflare R2)
 
-The sample manifest points at `cdn.example.com`, which does not exist, so playing a seed track ends with
-"Couldn't play this track". To test, host a few audio files you own (m4a or mp3) at **https** URLs
-(GitHub Pages, S3, R2, any static host) and either:
+Production audio is stored in a **private Cloudflare R2 bucket**. The Android app accesses the manifest and audio only through the Cloudflare Worker in `cloudflare/worker/`. The Worker checks a single-user bearer token before reading R2, streams original file bytes and supports HTTP Range requests. It does not re-encode or force a bitrate.
 
-1. edit the `stream_url` values in `app/src/main/assets/manifest_seed.json` (debug builds use it when the
-   first fetch fails), or
-2. host a full manifest and set `MANIFEST_URL` in `app/build.gradle.kts`.
+1. Follow [`cloudflare/worker/README.md`](cloudflare/worker/README.md) to create the private bucket, set the `PERSONA_ACCESS_TOKEN` Worker secret, upload original files and a v2 manifest, then deploy the Worker.
+2. Add `MUSIC_API_BASE_URL=https://YOUR-WORKER.workers.dev` to the untracked root `local.properties` (HTTPS origin only).
+3. Build/install the app, open **Settings → Private music library**, paste the 64-character token and save it. Android Keystore encrypts it at rest.
 
-Plain `http://` URLs are rejected on purpose (spec 7.1).
+Location, zones, weather/time resolution, preferences, music selection, playback and caching remain on Android. Only the manifest and requested audio bytes come from the cloud. Plain HTTP and audio URLs outside the configured Worker host/path are rejected. The bundled seed manifest is placeholder data, not a playable library.
 
 ### Device test checklist for Phase 3
 
@@ -289,8 +286,8 @@ apply within a track's `variant_group` only.
   one process, far fewer async moving parts. The MediaSession still serves all external controllers.
 - `DefaultHttpDataSource` is used for audio instead of the OkHttp data source, avoiding a
   Media3/OkHttp version pairing risk. Easy to swap later.
-- The pre-cache worker gets its dependencies through a Hilt entry point instead of `hilt-work`, so no
-  custom WorkManager configuration is needed.
+- The pre-cache worker gets its dependencies through a Hilt entry point instead of `hilt-work`, so no custom WorkManager configuration is needed. Pre-caching prioritizes the selected theme's default and zone-assigned tracks/variants.
+- A private Cloudflare Worker authenticates manifest/audio requests and streams original bytes from private R2. The device token is encrypted using Android Keystore and is not compiled into the APK.
 
 ## Spec additions found while coding
 
@@ -309,8 +306,7 @@ apply within a track's `variant_group` only.
   crossfade, replace `CrossfadePlayer` with a `SimpleBasePlayer` (spec 4.1 names this fallback).
 - **Foreground start.** The UI starts the service with `startService` from the foreground and Media3
   promotes it when playback begins. Starts from the background (geofence events) are Phase 4.
-- **Clearing the audio cache while a track plays** can briefly interrupt that track; the engine's error
-  retry recovers it.
+- Clearing saved audio removes non-playing tracks immediately and defers removal of the loaded/incoming tracks until playback releases them.
 
 ## Not done yet / known gaps
 

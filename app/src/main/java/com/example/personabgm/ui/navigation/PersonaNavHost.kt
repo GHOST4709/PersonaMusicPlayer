@@ -67,6 +67,8 @@ fun PersonaNavHost(
     val snapshot by permissionsViewModel.snapshot.collectAsStateWithLifecycle()
     val issues by permissionsViewModel.issues.collectAsStateWithLifecycle()
     val actions = rememberPermissionActions(onResult = permissionsViewModel::refresh)
+    val musicAccessConfigured by viewModel.musicAccessConfigured.collectAsStateWithLifecycle()
+    val musicAccessError by viewModel.musicAccessError.collectAsStateWithLifecycle()
     val oemTip = remember { OemGuidance.forManufacturer(Build.MANUFACTURER) }
 
     // First run opens setup; afterwards Home. Fixed at first composition: later changes use explicit navigation.
@@ -203,6 +205,11 @@ fun PersonaNavHost(
                         viewModel.setCrossfadeCurve(if (linear) CrossfadeCurve.LINEAR else CrossfadeCurve.EQUAL_POWER)
                     },
                     onWifiOnlyChange = viewModel::setPrecacheWifiOnly,
+                    onAudioCacheLimitChange = viewModel::setAudioCacheLimitMb,
+                    musicAccessConfigured = musicAccessConfigured,
+                    musicAccessError = musicAccessError,
+                    onSaveMusicAccessToken = { token -> viewModel.saveMusicAccessToken(token) { manifestViewModel.refresh() } },
+                    onClearMusicAccessToken = viewModel::clearMusicAccessToken,
                     onFastZoneDetectionChange = viewModel::setFastZoneDetection,
                     onOpenDebug = if (BuildConfig.DEBUG) ({ navController.navigate(Routes.DEBUG) }) else null,
                     onClearCache = viewModel::clearAudioCache,

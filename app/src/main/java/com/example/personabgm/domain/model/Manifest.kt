@@ -35,13 +35,19 @@ data class Manifest(
         return tracks.filter { it.variantGroup == group }
     }
 
-    /**
-     * Tracks worth downloading ahead of time (spec 4.4): every theme's roaming default plus every
-     * track assigned to a zone, each with its variants, so the first trigger plays with no wait.
+    /** Tracks for this single-user device: zone assignments plus the active theme's default.
+     * The selected theme default is last so it is recent in the LRU working set.
      */
-    fun precacheTracks(assignedTrackIds: Collection<String> = emptyList()): List<Track> =
-        (themeDefaults.values + assignedTrackIds)
-            .mapNotNull { trackById(it) }
+    fun precacheTracks(
+        assignedTrackIds: Collection<String> = emptyList(),
+        activeTheme: GameTheme? = null,
+    ): List<Track> {
+        val defaultIds = if (activeTheme == null) themeDefaults.values.toList()
+            else listOfNotNull(themeDefaults[activeTheme])
+        val ids = if (activeTheme == null) defaultIds + assignedTrackIds
+            else assignedTrackIds.distinct() + defaultIds
+        return ids.mapNotNull { trackById(it) }
             .flatMap { variantsOf(it) }
             .distinctBy { it.id }
+    }
 }

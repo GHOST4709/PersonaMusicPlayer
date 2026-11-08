@@ -31,6 +31,30 @@ class ManifestPrecacheTest {
         assertEquals(listOf("p3", "p4a", "p4b"), m.precacheTracks().map { it.id })
     }
 
+
+    @Test fun selectedThemeAndZoneTracksArePrioritizedForSingleUser() {
+        val m = Manifest(
+            version = 2,
+            themeDefaults = mapOf(
+                GameTheme.PERSONA_3_RELOAD to "p3",
+                GameTheme.PERSONA_4_REVIVAL to "p4",
+                GameTheme.PERSONA_5_ROYAL to "p5",
+            ),
+            tracks = listOf(
+                t("p3", GameTheme.PERSONA_3_RELOAD, "p3_group"),
+                t("p3_rain", GameTheme.PERSONA_3_RELOAD, "p3_group"),
+                t("p4", GameTheme.PERSONA_4_REVIVAL),
+                t("p5", GameTheme.PERSONA_5_ROYAL),
+                t("zone", GameTheme.PERSONA_4_REVIVAL, "zone_group"),
+                t("zone_variant", GameTheme.PERSONA_4_REVIVAL, "zone_group"),
+            ),
+        )
+        assertEquals(
+            listOf("zone", "zone_variant", "p3", "p3_rain"),
+            m.precacheTracks(listOf("zone"), GameTheme.PERSONA_3_RELOAD).map { it.id },
+        )
+    }
+
     @Test fun emptyDefaultsMeanNothingToPrecache() {
         assertEquals(emptyList<Track>(), Manifest(1, emptyMap(), listOf(t("a", GameTheme.PERSONA_3_RELOAD))).precacheTracks())
     }
