@@ -2,6 +2,7 @@ package com.example.personabgm.context
 
 import android.util.Log
 import com.example.personabgm.data.local.datastore.SettingsRepository
+import com.example.personabgm.data.local.datastore.ScenarioRepository
 import com.example.personabgm.data.local.db.ZoneDao
 import com.example.personabgm.data.local.db.ZoneStateDao
 import com.example.personabgm.data.repository.ManifestRepository
@@ -9,6 +10,7 @@ import com.example.personabgm.data.repository.WeatherRepository
 import com.example.personabgm.data.repository.toDomain
 import com.example.personabgm.domain.model.AutoContext
 import com.example.personabgm.domain.model.ContextInfo
+import com.example.personabgm.domain.model.MusicScenario
 import com.example.personabgm.domain.model.LatLng
 import com.example.personabgm.domain.model.PlaybackContext
 import com.example.personabgm.domain.model.TimeBucket
@@ -52,6 +54,7 @@ class ContextEngine(
     private val scope: CoroutineScope,
     settingsRepository: SettingsRepository,
     manifestRepository: ManifestRepository,
+    scenarioRepository: ScenarioRepository,
     private val zoneDao: ZoneDao,
     zoneStateDao: ZoneStateDao,
     private val weatherRepository: WeatherRepository,
@@ -63,6 +66,7 @@ class ContextEngine(
 ) {
     private val settings = settingsRepository.settings
     private val manifest = manifestRepository.manifest.distinctUntilChanged()
+    private val scenarios = scenarioRepository.scenarios
     private val zones = zoneDao.observeAll()
 
     private val signals: Flow<List<ZoneSignal>> = zoneStateDao.observeAll().map { rows ->
@@ -98,14 +102,21 @@ class ContextEngine(
 
     /** Debounced 1 s after the first value (spec 5.6) and de-duplicated, so identical results never re-trigger a fade. */
     val autoContext: Flow<AutoContext> = run {
-        val core = combine(settings, manifest, zones) { s, m, z -> Triple(s, m, z) }
-        combine(core, activeZoneId, weather, timeBucket) { (appSettings, manifestOrNull, zoneEntities), zoneId, currentWeather, time ->
+        val core = combine(settings, manifest, zones, scenarios) { s, m, z, scenarioRows ->
+            Pair(Triple(s, m, z), scenarioRows)
+        }
+        combine(core, activeZoneId, weather, timeBucket) { (base, scenarioRows), zoneId, currentWeather, time ->
+            val (appSettings, manifestOrNull, zoneEntities) = base
             val zone = zoneEntities.firstOrNull { it.id == zoneId && it.enabled }?.toDomain()
             // With the weather override off, weather is treated as clear (spec 5.4 fallback).
             val effectiveWeather = if (appSettings.weatherOverrideEnabled) currentWeather else WeatherType.CLEAR
             val info = ContextInfo(zone?.id, zone?.name, effectiveWeather, time, appSettings.theme)
             val target = manifestOrNull?.let {
-                ContextResolver.resolve(PlaybackContext(zone, appSettings.theme, effectiveWeather, time), it)
+                ContextResolver.resolve(
+                    PlaybackContext(zone, appSettings.theme, effectiveWeather, time, appSettings.playbackScene),
+                    it,
+                    scenarioRows,
+                )
             }
             AutoContext(target, info)
         }

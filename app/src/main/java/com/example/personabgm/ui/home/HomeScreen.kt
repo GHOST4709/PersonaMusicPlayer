@@ -1,5 +1,7 @@
 package com.example.personabgm.ui.home
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,20 +11,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.personabgm.audio.PlaybackMode
 import com.example.personabgm.audio.PlaybackUiState
 import com.example.personabgm.domain.model.GameTheme
+import com.example.personabgm.domain.model.PlaybackScene
 import com.example.personabgm.domain.model.TimeBucket
 import com.example.personabgm.domain.model.WeatherType
 import com.example.personabgm.domain.permissions.HealthIssue
 import com.example.personabgm.ui.components.PersonaButton
 import com.example.personabgm.ui.components.PersonaCard
 import com.example.personabgm.ui.components.PersonaHeading
+import com.example.personabgm.ui.components.PlaybackSceneSwitch
 import com.example.personabgm.ui.components.TagChip
 import com.example.personabgm.ui.components.headingSemantics
 import com.example.personabgm.ui.components.politeLiveRegion
@@ -34,6 +43,9 @@ import com.example.personabgm.ui.theme.PersonaStyles
 @Composable
 fun HomeScreen(
     selectedTheme: GameTheme,
+    playbackScene: PlaybackScene,
+    onPlaybackSceneChange: (PlaybackScene) -> Unit,
+    onOpenNowPlaying: () -> Unit,
     playback: PlaybackUiState,
     healthIssues: List<HealthIssue>,
     onThemeSelected: (GameTheme) -> Unit,
@@ -51,6 +63,8 @@ fun HomeScreen(
 ) {
     val haptics = LocalHaptics.current
     val colors = MaterialTheme.colorScheme
+    var selectedFilter by remember { mutableStateOf<GameTheme?>(null) }
+    val visibleStyles = PersonaStyles.all.filter { selectedFilter == null || it.theme == selectedFilter }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -58,6 +72,27 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { PersonaHeading(text = "Now playing") }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val filters = listOf(
+                    "All" to null,
+                    "Persona 3 Reloaded" to GameTheme.PERSONA_3_RELOAD,
+                    "Persona 4 Revival" to GameTheme.PERSONA_4_REVIVAL,
+                    "Persona 5 Royal" to GameTheme.PERSONA_5_ROYAL,
+                )
+                filters.forEach { (label, theme) ->
+                    FilterChip(
+                        selected = selectedFilter == theme,
+                        onClick = { selectedFilter = theme },
+                        label = { Text(label) },
+                    )
+                }
+            }
+        }
+        item { PlaybackSceneSwitch(scene = playbackScene, onSceneChange = onPlaybackSceneChange) }
 
         if (healthIssues.isNotEmpty()) {
             item {
@@ -77,6 +112,7 @@ fun HomeScreen(
                 onPrevious = onPrevious,
                 onNext = onNext,
                 onResumeAuto = onResumeAuto,
+                onOpenNowPlaying = onOpenNowPlaying,
             )
         }
 
@@ -89,7 +125,7 @@ fun HomeScreen(
             )
         }
 
-        items(items = PersonaStyles.all, key = { it.theme.name }) { style ->
+        items(items = visibleStyles, key = { it.theme.name }) { style ->
             ThemeOptionCard(
                 style = style,
                 selected = style.theme == selectedTheme,
@@ -140,6 +176,7 @@ private fun NowPlayingCard(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onResumeAuto: () -> Unit,
+    onOpenNowPlaying: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val track = state.track
@@ -197,5 +234,10 @@ private fun NowPlayingCard(
                     .padding(top = 8.dp),
             )
         }
+        PersonaButton(
+            text = "Open player",
+            onClick = onOpenNowPlaying,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        )
     }
 }

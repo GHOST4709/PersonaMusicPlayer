@@ -33,6 +33,9 @@ import com.example.personabgm.ui.debug.DebugScreen
 import com.example.personabgm.ui.debug.DebugViewModel
 import com.example.personabgm.ui.home.HomeScreen
 import com.example.personabgm.ui.library.LibraryScreen
+import com.example.personabgm.ui.nowplaying.NowPlayingScreen
+import com.example.personabgm.ui.scenarios.ScenarioScreen
+import com.example.personabgm.ui.scenarios.ScenarioViewModel
 import com.example.personabgm.ui.onboarding.OnboardingScreen
 import com.example.personabgm.ui.permissions.GpsBanner
 import com.example.personabgm.ui.permissions.PermissionsViewModel
@@ -45,7 +48,9 @@ import com.example.personabgm.ui.zones.ZonesViewModel
 object Routes {
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
+    const val NOW_PLAYING = "now-playing"
     const val LIBRARY = "library"
+    const val SCENARIOS = "scenarios"
     const val ZONES = "zones"
     const val SETTINGS = "settings"
     const val DEBUG = "debug"
@@ -123,6 +128,9 @@ fun PersonaNavHost(
             composable(Routes.HOME) {
                 HomeScreen(
                     selectedTheme = settings.theme,
+                    playbackScene = settings.playbackScene,
+                    onPlaybackSceneChange = viewModel::setPlaybackScene,
+                    onOpenNowPlaying = { navController.navigate(Routes.NOW_PLAYING) },
                     playback = playback,
                     healthIssues = if (settings.onboardingCompleted) issues else emptyList(),
                     onThemeSelected = viewModel::setTheme,
@@ -138,17 +146,43 @@ fun PersonaNavHost(
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 )
             }
+            composable(Routes.NOW_PLAYING) {
+                NowPlayingScreen(
+                    playback = playback,
+                    scene = settings.playbackScene,
+                    onSceneChange = viewModel::setPlaybackScene,
+                    onPlayPause = playbackViewModel::togglePlayPause,
+                    onPrevious = playbackViewModel::previous,
+                    onNext = playbackViewModel::next,
+                    onResumeAuto = playbackViewModel::resumeAuto,
+                    onOpenLibrary = { navController.navigate(Routes.LIBRARY) },
+                    onBack = { navController.popBackStack() },
+                )
+            }
             composable(Routes.LIBRARY) {
                 val state by manifestViewModel.uiState.collectAsStateWithLifecycle()
                 val cachedIds by manifestViewModel.cachedTrackIds.collectAsStateWithLifecycle()
                 LibraryScreen(
                     state = state,
                     activeTheme = settings.theme,
+                    playbackScene = settings.playbackScene,
+                    onPlaybackSceneChange = viewModel::setPlaybackScene,
                     playback = playback,
                     cachedIds = cachedIds,
                     onPlayTrack = playbackViewModel::playTrack,
                     onOpened = manifestViewModel::refreshCacheStatus,
                     onRefresh = manifestViewModel::refresh,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(Routes.SCENARIOS) {
+                val scenarioViewModel: ScenarioViewModel = hiltViewModel()
+                val scenarioState by scenarioViewModel.state.collectAsStateWithLifecycle()
+                ScenarioScreen(
+                    state = scenarioState,
+                    onSave = scenarioViewModel::save,
+                    onSetEnabled = scenarioViewModel::setEnabled,
+                    onDelete = scenarioViewModel::delete,
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -199,6 +233,7 @@ fun PersonaNavHost(
                     actions = actions,
                     onRunSetup = { navController.navigate(Routes.ONBOARDING) },
                     onOpened = viewModel::refreshAudioCache,
+                    onOpenScenarios = { navController.navigate(Routes.SCENARIOS) },
                     onVolumeChange = viewModel::setGlobalVolume,
                     onCrossfadeDurationChange = viewModel::setCrossfadeDurationMs,
                     onLinearCurveChange = { linear ->

@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.personabgm.domain.model.AppSettings
 import com.example.personabgm.domain.model.CrossfadeCurve
 import com.example.personabgm.domain.model.GameTheme
+import com.example.personabgm.domain.model.PlaybackScene
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -29,6 +30,7 @@ class SettingsRepository @Inject constructor(
         .map { it.toSettings() }
 
     suspend fun setTheme(theme: GameTheme) = update { it[Keys.THEME] = theme.name }
+    suspend fun setPlaybackScene(scene: PlaybackScene) = update { it[Keys.PLAYBACK_SCENE] = scene.name }
     suspend fun setGlobalVolume(volume: Float) = update { it[Keys.GLOBAL_VOLUME] = volume.coerceIn(0f, 1f) }
     suspend fun setCrossfadeDurationMs(ms: Int) = update { it[Keys.CROSSFADE_DURATION_MS] = ms.coerceIn(500, 8000) }
     suspend fun setCrossfadeCurve(curve: CrossfadeCurve) = update { it[Keys.CROSSFADE_CURVE] = curve.name }
@@ -57,6 +59,7 @@ class SettingsRepository @Inject constructor(
 
     private object Keys {
         val THEME = stringPreferencesKey("active_theme")
+        val PLAYBACK_SCENE = stringPreferencesKey("playback_scene")
         val GLOBAL_VOLUME = floatPreferencesKey("global_volume")
         val CROSSFADE_DURATION_MS = intPreferencesKey("crossfade_duration_ms")
         val CROSSFADE_CURVE = stringPreferencesKey("crossfade_curve")
@@ -74,6 +77,7 @@ class SettingsRepository @Inject constructor(
         val defaults = AppSettings()
         return AppSettings(
             theme = GameTheme.fromNameOrDefault(this[Keys.THEME]),
+            playbackScene = PlaybackScene.fromNameOrDefault(this[Keys.PLAYBACK_SCENE]),
             globalVolume = (this[Keys.GLOBAL_VOLUME] ?: defaults.globalVolume).coerceIn(0f, 1f),
             crossfadeDurationMs = this[Keys.CROSSFADE_DURATION_MS] ?: defaults.crossfadeDurationMs,
             crossfadeCurve = CrossfadeCurve.entries.firstOrNull { it.name == this[Keys.CROSSFADE_CURVE] }

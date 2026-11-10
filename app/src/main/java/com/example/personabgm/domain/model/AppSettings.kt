@@ -15,4 +15,5 @@ data class AppSettings(
     val hapticsEnabled: Boolean = true,
     val reduceMotion: Boolean = false,
     val onboardingCompleted: Boolean = false,
+    val playbackScene: PlaybackScene = PlaybackScene.NORMAL,
 )

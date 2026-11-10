@@ -22,6 +22,7 @@ import com.example.personabgm.R
 import com.example.personabgm.context.ContextEngine
 import com.example.personabgm.context.DebugOverrides
 import com.example.personabgm.data.local.datastore.SettingsRepository
+import com.example.personabgm.data.local.datastore.ScenarioRepository
 import com.example.personabgm.data.local.db.ZoneDao
 import com.example.personabgm.data.local.db.ZoneStateDao
 import com.example.personabgm.data.repository.ManifestRepository
@@ -52,6 +53,7 @@ class PlaybackService : MediaSessionService() {
     @Inject lateinit var remote: PlaybackRemote
     @Inject lateinit var mediaCache: MediaCache
     @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var scenarioRepository: ScenarioRepository
     @Inject lateinit var manifestRepository: ManifestRepository
     @Inject lateinit var zoneDao: ZoneDao
     @Inject lateinit var zoneStateDao: ZoneStateDao
@@ -77,6 +79,7 @@ class PlaybackService : MediaSessionService() {
             scope = serviceScope,
             settingsRepository = settingsRepository,
             manifestRepository = manifestRepository,
+            scenarioRepository = scenarioRepository,
             zoneDao = zoneDao,
             zoneStateDao = zoneStateDao,
             weatherRepository = weatherRepository,

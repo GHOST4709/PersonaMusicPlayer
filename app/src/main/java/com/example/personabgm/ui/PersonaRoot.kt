@@ -68,7 +68,11 @@ private fun PersonaContent(
         }
     }
 
-    PersonaTheme(theme = settings.theme, reduceMotionSetting = settings.reduceMotion) {
+    PersonaTheme(
+        theme = settings.theme,
+        playbackScene = settings.playbackScene,
+        reduceMotionSetting = settings.reduceMotion,
+    ) {
         val haptics = rememberHaptics(enabled = settings.hapticsEnabled)
         CompositionLocalProvider(LocalHaptics provides haptics) {
             PersonaBackground {

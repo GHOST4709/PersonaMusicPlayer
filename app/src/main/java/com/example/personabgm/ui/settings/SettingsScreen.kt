@@ -64,6 +64,7 @@ fun SettingsScreen(
     actions: PermissionActions,
     onRunSetup: () -> Unit,
     onOpened: () -> Unit,
+    onOpenScenarios: () -> Unit,
     onVolumeChange: (Float) -> Unit,
     onCrossfadeDurationChange: (Int) -> Unit,
     onLinearCurveChange: (Boolean) -> Unit,
@@ -90,8 +91,19 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { PersonaHeading(text = "Settings") }
+        item {
+            PersonaCard(modifier = Modifier.fillMaxWidth()) {
+                Text("Scenarios", style = MaterialTheme.typography.titleMedium, color = colors.onSurface)
+                Text(
+                    "Create separate All, Persona 3, Persona 4 and Persona 5 rules for time, weather, location and playback scene.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                )
+                PersonaButton("Manage scenario rules", onOpenScenarios, modifier = Modifier.fillMaxWidth())
+            }
+        }
 
-        item { SectionTitle("Playback") }
+        item { SectionTitle("Playback & Audio") }
         item {
             PersonaCard(modifier = Modifier.fillMaxWidth()) {
                 PersonaSliderRow(
@@ -269,7 +281,7 @@ fun SettingsScreen(
             }
         }
 
-        item { SectionTitle("Interface") }
+        item { SectionTitle("Appearance") }
         item {
             PersonaCard(modifier = Modifier.fillMaxWidth()) {
                 PersonaSwitchRow(

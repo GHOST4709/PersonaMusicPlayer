@@ -10,6 +10,7 @@ import com.example.personabgm.data.repository.ManifestRepository
 import com.example.personabgm.domain.model.AppSettings
 import com.example.personabgm.domain.model.CrossfadeCurve
 import com.example.personabgm.domain.model.GameTheme
+import com.example.personabgm.domain.model.PlaybackScene
 import com.example.personabgm.security.MusicAccessTokenStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -54,6 +55,7 @@ class AppViewModel @Inject constructor(
             precacheScheduler.schedule()
         }
     }
+    fun setPlaybackScene(scene: PlaybackScene) = launchSetting { this.setPlaybackScene(scene) }
     fun setHapticsEnabled(enabled: Boolean) = launchSetting { this.setHapticsEnabled(enabled) }
     fun setReduceMotion(enabled: Boolean) = launchSetting { this.setReduceMotion(enabled) }
     fun setOnboardingCompleted(done: Boolean) = launchSetting { this.setOnboardingCompleted(done) }

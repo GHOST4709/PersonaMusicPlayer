@@ -16,6 +16,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.example.personabgm.domain.model.GameTheme
+import com.example.personabgm.domain.model.PlaybackScene
 
 /** Non-color theme data (shapes, copy, ids) for the active theme. */
 val LocalPersonaStyle = staticCompositionLocalOf<PersonaStyle> {
@@ -24,6 +25,7 @@ val LocalPersonaStyle = staticCompositionLocalOf<PersonaStyle> {
 
 /** True when the in-app toggle or the system "Remove animations" setting asks for no motion. */
 val LocalReduceMotion = staticCompositionLocalOf { false }
+val LocalPlaybackScene = staticCompositionLocalOf { PlaybackScene.NORMAL }
 
 /**
  * Live-switching theme (spec 3.1). Colors cross-animate over 450 ms; typography and shapes
@@ -36,6 +38,7 @@ val LocalReduceMotion = staticCompositionLocalOf { false }
 fun PersonaTheme(
     theme: GameTheme,
     reduceMotionSetting: Boolean,
+    playbackScene: PlaybackScene = PlaybackScene.NORMAL,
     content: @Composable () -> Unit,
 ) {
     val style = remember(theme) { PersonaStyles.of(theme) }
@@ -43,7 +46,17 @@ fun PersonaTheme(
     val spec: AnimationSpec<Color> =
         if (reduceMotion) snap<Color>() else tween<Color>(durationMillis = 450)
 
-    val palette = animatePalette(style.palette, spec)
+    val scenePalette = if (playbackScene == PlaybackScene.BATTLE) {
+        style.palette.copy(
+            primary = Color(0xFF526FA8),
+            onPrimary = Color(0xFFFFFFFF),
+            accent = Color(0xFFB9D0FF),
+            onAccent = Color(0xFF101827),
+            surfaceVariant = Color(0xFF202B43),
+            outline = Color(0xFF405579),
+        )
+    } else style.palette
+    val palette = animatePalette(scenePalette, spec)
     val colorScheme = remember(palette) { palette.toColorScheme() }
     val shapes = remember(style) {
         Shapes(
@@ -58,6 +71,7 @@ fun PersonaTheme(
     CompositionLocalProvider(
         LocalPersonaStyle provides style,
         LocalReduceMotion provides reduceMotion,
+        LocalPlaybackScene provides playbackScene,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

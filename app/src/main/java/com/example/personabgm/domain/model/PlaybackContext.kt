@@ -6,6 +6,7 @@ data class PlaybackContext(
     val theme: GameTheme,
     val weather: WeatherType,
     val time: TimeBucket,
+    val playbackScene: PlaybackScene = PlaybackScene.NORMAL,
 )
 
 /** The parts of the context worth showing to the person (Home chips) and logging. */

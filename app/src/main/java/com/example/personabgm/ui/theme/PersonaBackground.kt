@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.unit.dp
 import com.example.personabgm.domain.model.GameTheme
+import com.example.personabgm.domain.model.PlaybackScene
 import kotlin.math.PI
 import kotlin.math.hypot
 import kotlin.math.sin
@@ -51,7 +52,38 @@ fun PersonaBackground(
                 GameTheme.PERSONA_5_ROYAL -> ComicPattern(palette)
             }
         }
+        if (LocalPlaybackScene.current == PlaybackScene.BATTLE) TartarusPattern()
         content()
+    }
+}
+
+/** Battle scene: a restrained Tartarus-inspired tower/grid motif, independent of Persona artwork. */
+@Composable
+private fun TartarusPattern() {
+    Canvas(Modifier.fillMaxSize()) {
+        val glow = Color(0xFF7896D5)
+        val step = size.width / 9f
+        for (index in 0..9) {
+            val x = index * step
+            drawLine(
+                color = glow.copy(alpha = if (index % 2 == 0) 0.075f else 0.035f),
+                start = Offset(x, 0f),
+                end = Offset(x + size.height * 0.10f, size.height),
+                strokeWidth = 1.5.dp.toPx(),
+            )
+        }
+        for (index in 1..8) {
+            val y = size.height * index / 9f
+            drawLine(
+                color = glow.copy(alpha = 0.035f),
+                start = Offset(0f, y),
+                end = Offset(size.width, y),
+                strokeWidth = 1.dp.toPx(),
+            )
+        }
+        drawRect(
+            brush = Brush.verticalGradient(listOf(Color(0xFF080D1C).copy(alpha = 0.03f), Color(0xFF0B1630).copy(alpha = 0.34f))),
+        )
     }
 }
 
