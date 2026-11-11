@@ -17,6 +17,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.example.personabgm.domain.model.GameTheme
 import com.example.personabgm.domain.model.PlaybackScene
+import androidx.compose.foundation.shape.CornerBasedShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 
 /** Non-color theme data (shapes, copy, ids) for the active theme. */
 val LocalPersonaStyle = staticCompositionLocalOf<PersonaStyle> {
@@ -58,15 +61,16 @@ fun PersonaTheme(
     } else style.palette
     val palette = animatePalette(scenePalette, spec)
     val colorScheme = remember(palette) { palette.toColorScheme() }
+    
     val shapes = remember(style) {
         Shapes(
-            extraSmall = style.shapes.badge,
-            small = style.shapes.button,
-            medium = style.shapes.card,
-            large = style.shapes.card,
-            extraLarge = style.shapes.card,
-        )
-    }
+        extraSmall = style.shapes.badge as? CornerBasedShape ?: RoundedCornerShape(4.dp),
+        small = style.shapes.button as? CornerBasedShape ?: RoundedCornerShape(12.dp),
+        medium = style.shapes.card as? CornerBasedShape ?: RoundedCornerShape(18.dp),
+        large = style.shapes.card as? CornerBasedShape ?: RoundedCornerShape(24.dp),
+        extraLarge = style.shapes.card as? CornerBasedShape ?: RoundedCornerShape(28.dp),
+    )
+}
 
     CompositionLocalProvider(
         LocalPersonaStyle provides style,

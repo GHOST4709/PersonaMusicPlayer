@@ -23,7 +23,6 @@ class BootReceiver : BroadcastReceiver() {
     @Inject lateinit var geofenceManager: GeofenceManager
 
     override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent) // Hilt injects here
         if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val pending = goAsync()
         scope.launch {

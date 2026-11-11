@@ -29,7 +29,7 @@ fun String.asBuildConfigString(): String = "\"" + replace("\\", "\\\\").replace(
 
 android {
     namespace = "com.example.personabgm"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.example.personabgm"

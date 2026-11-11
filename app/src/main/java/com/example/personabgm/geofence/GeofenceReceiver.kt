@@ -38,7 +38,6 @@ class GeofenceReceiver : BroadcastReceiver() {
     @Inject lateinit var playbackRemote: PlaybackRemote
 
     override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent) // Hilt injects here
         val event = GeofencingEvent.fromIntent(intent) ?: return
         val pending = goAsync()
         scope.launch {
