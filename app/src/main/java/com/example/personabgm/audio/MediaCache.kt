@@ -49,8 +49,10 @@ class MediaCache @Inject constructor(
             evictor,
             StandaloneDatabaseProvider(context),
         ).also { created ->
+            // SimpleCache initializes its directory asynchronously and reports existing spans
+            // through CacheEvictor.onSpanAdded(). Do not synchronously enumerate its keys here:
+            // that can deadlock against those callbacks while cache initialization is in progress.
             cacheInstance = created
-            evictor.rebuildFrom(created)
         }
     }
 
