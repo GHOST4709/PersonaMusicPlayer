@@ -1,0 +1,16 @@
+{
+  "name": "persona-bgm-r2-catalogue",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "generate": "node generate-manifest.mjs",
+    "upload": "node generate-manifest.mjs --upload",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.900.0"
+  }
+}
