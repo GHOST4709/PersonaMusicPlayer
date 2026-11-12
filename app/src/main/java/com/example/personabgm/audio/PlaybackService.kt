@@ -108,9 +108,20 @@ class PlaybackService : MediaSessionService() {
             Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        mediaSession = MediaSession.Builder(this, CrossfadePlayer(engine.activePlayer, engine))
-            .setSessionActivity(openApp)
-            .build()
+
+
+       val session = MediaSession.Builder(
+    this,
+    CrossfadePlayer(engine.activePlayer, engine)
+)
+    .setSessionActivity(openApp)
+    .build()
+
+mediaSession = session
+
+// Register the session with MediaSessionService.
+addSession(session)
+
 
         // After each crossfade the active ExoPlayer changes; rebind the session once (spec 4.1).
         engine.onActivePlayerChanged = { player ->
